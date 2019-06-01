@@ -1,0 +1,65 @@
+<package format="2">
+  <name>moveit_planners_lerp</name>
+  <version>1.0.1</version>
+  <description>LERP planning plugin</description>
+
+  <author email="omid@picknik.ai">Omid Heidari</author>
+
+  <maintainer email="omid@picknik.ai">Omid Heidari</maintainer>
+  <maintainer email="moveit_releasers@googlegroups.com">MoveIt! Release Team</maintainer>
+
+  <license>BSD</license>
+
+  <url type="website">http://moveit.ros.org</url>
+  <url type="bugtracker">https://github.com/ros-planning/moveit/issues</url>
+  <url type="repository">https://github.com/ros-planning/moveit</url>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <!--depend>roscpp</depend>
+  <depend>moveit_core</depend>
+  <depend>pluginlib</depend-->
+
+
+<depend>pluginlib</depend>
+<depend>eigen</depend>
+<depend>moveit_core</depend>
+<depend>moveit_ros_planning</depend>
+<depend>moveit_ros_planning_interface</depend>
+<depend>moveit_ros_perception</depend>
+<depend>interactive_markers</depend>
+<depend>geometric_shapes</depend>
+<depend>moveit_visual_tools</depend>
+<depend>rviz_visual_tools</depend>
+<depend>pcl_ros</depend>
+<depend>pcl_conversions</depend>
+<depend>rosbag</depend>
+<depend>tf2_ros</depend>
+<depend>tf2_eigen</depend>
+<depend>tf2_geometry_msgs</depend>
+
+<!--run_depend>panda_moveit_config</run_depend>
+<run_depend>pluginlib</run_depend>
+<run_depend>moveit_core</run_depend>
+<run_depend>moveit_commander</run_depend>
+<run_depend>moveit_fake_controller_manager</run_depend>
+<run_depend>moveit_ros_planning_interface</run_depend>
+<run_depend>moveit_ros_perception</run_depend>
+<run_depend>interactive_markers</run_depend>
+<run_depend>moveit_visual_tools</run_depend>
+<run_depend>rviz_visual_tools</run_depend>
+<run_depend>joy</run_depend>
+<run_depend>pcl_ros</run_depend>
+<run_depend>pcl_conversions</run_depend>
+<run_depend>rosbag</run_depend>
+<run_depend>tf2_ros</run_depend>
+<run_depend>tf2_eigen</run_depend>
+<run_depend>tf2_geometry_msgs</run_depend-->
+
+
+
+  <export>
+    <moveit_core plugin="${prefix}/lerp_interface_plugin_description.xml"/>
+  </export>
+
+</package>
