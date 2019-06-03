@@ -39,9 +39,11 @@
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/robot_state/conversions.h>
-#include "model_based_planning_context.h"
+#include "lerp_planning_context.h"
 #include "moveit/planning_interface/planning_response.h"
+#include "moveit/collision_detection_fcl/collision_detector_allocator_fcl.h"
 
+#include "lerp_planning_context.h"
 
 #include <class_loader/class_loader.hpp>
 
@@ -50,17 +52,31 @@ namespace lerp_interface
 class LERPPlannerManager : public planning_interface::PlannerManager
 {
 public:
-  LERPPlannerManager() : planning_interface::PlannerManager(), nh_("~")
+  LERPPlannerManager() : planning_interface::PlannerManager()
   {
   }
 
+//  bool initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns) override
+//  {
+//    if (!ns.empty())
+//      nh_ = ros::NodeHandle(ns);
+//    std::string lerp_ns = ns.empty() ? "lerp" : ns + "/lerp";
+//    return true;
+//  }
+
   bool initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns) override
   {
-    if (!ns.empty())
-      nh_ = ros::NodeHandle(ns);
-    std::string lerp_ns = ns.empty() ? "lerp" : ns + "/lerp";
+    for (const std::string& group : model->getJointModelGroupNames())
+    {
+        std::cout << "******* initialize gets calleds " << std::endl <<
+                  "group name " << group << std::endl <<
+                     "robot model  " << model->getName() << std::endl;
+      planning_contexts_[group] =
+         LERPPlanningContextPtr(new LERPPlanningContext("lerp_planning_context", group, model));
+    }
     return true;
   }
+
 
   bool canServiceRequest(const moveit_msgs::MotionPlanRequest& req) const override
   {
@@ -82,17 +98,49 @@ public:
                                                             const planning_interface::MotionPlanRequest& req,
                                                             moveit_msgs::MoveItErrorCodes& error_code) const override
   {
-      std::string n = "contextName";
-      std::string m = "groupName";
-    //ModelBasedPlanningContext mbpc(n, m);
-std::shared_ptr<ModelBasedPlanningContext> mbpcPtr(new ModelBasedPlanningContext(n,m));
-//bool b = mbpcPtr->solve(planning_interface::MotionPlanResponse& res);
+      std::cout << "=====>>>>> getPlanningContext() is called " << std::endl;
+      error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
 
-    return mbpcPtr;
+      if (req.group_name.empty())
+      {
+        ROS_ERROR("No group specified to plan for");
+        error_code.val = moveit_msgs::MoveItErrorCodes::INVALID_GROUP_NAME;
+        return planning_interface::PlanningContextPtr();
+      }
+
+      if (!planning_scene)
+      {
+        ROS_ERROR("No planning scene supplied as input");
+        error_code.val = moveit_msgs::MoveItErrorCodes::FAILURE;
+        return planning_interface::PlanningContextPtr();
+      }
+
+      // create PlanningScene using hybrid collision detector
+      planning_scene::PlanningScenePtr ps = planning_scene->diff();
+
+
+      // set FCL as the allocaotor
+      ps->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorFCL::create(), true);
+
+
+
+      // retrieve and configure existing context
+      const LERPPlanningContextPtr& context = planning_contexts_.at(req.group_name);
+      std::cout << "=====>>>>> context is made " << std::endl;
+
+
+      context->setPlanningScene(ps);
+      context->setMotionPlanRequest(req);
+      error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
+
+      return context;
   }
 
 private:
   ros::NodeHandle nh_;
+
+protected:
+  std::map<std::string, LERPPlanningContextPtr> planning_contexts_;
 };
 
 }  // namespace lerp_interface

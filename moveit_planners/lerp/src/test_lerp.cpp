@@ -11,6 +11,10 @@
 #include <moveit_msgs/DisplayTrajectory.h>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit_visual_tools/moveit_visual_tools.h>
+#include "moveit/planning_interface/planning_request.h"
+
+#include <moveit/robot_model/robot_model.h>
+#include <moveit/robot_state/robot_state.h>
 
 #include <boost/scoped_ptr.hpp>
 
@@ -31,6 +35,9 @@ int main(int argc, char **argv)
   robot_state::RobotStatePtr robot_state(new robot_state::RobotState(robot_model));
   const robot_state::JointModelGroup* joint_model_group = robot_state->getJointModelGroup(PLANNING_GROUP);
 
+  robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(robot_model));
+  const std::vector<std::string>& joint_names = joint_model_group->getVariableNames();
+
   planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
 
   // With the planning scene we create a planing scene monitor that
@@ -41,14 +48,16 @@ int main(int argc, char **argv)
   psm->startStateMonitor();
   psm->startSceneMonitor();
 
-  while (!psm->getStateMonitor()->haveCompleteState() && ros::ok())
-  {
-    ROS_INFO_STREAM_THROTTLE_NAMED(1, node_name, "Waiting for complete state from topic ");
-  }
+//  while (!psm->getStateMonitor()->haveCompleteState() && ros::ok())
+//  {
+//    ROS_INFO_STREAM_THROTTLE_NAMED(1, node_name, "Waiting for complete state from topic ");
+//  }
   // We will now construct a loader to load a planner, by name.
   // Note that we are using the ROS pluginlib library here.
   boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
   planning_interface::PlannerManagerPtr planner_instance;
+
+
   std::string planner_plugin_name;
 
   planner_plugin_name = "lerp_interface/LERPPlanner";
@@ -110,8 +119,11 @@ int main(int argc, char **argv)
   /* Batch publishing is used to reduce the number of messages being sent to RViz for large visualizations */
   visual_tools.trigger();
 
+
   /* We can also use visual_tools to wait for user input */
   visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to start the demo");
+
+
 
   // Pose Goal
   // ^^^^^^^^^
@@ -133,6 +145,7 @@ int main(int argc, char **argv)
   std::vector<double> tolerance_pose(3, 0.01);
   std::vector<double> tolerance_angle(3, 0.01);
 
+
   // We will create the request as a constraint using a helper function available
   // from the
   // `kinematic_constraints`_
@@ -146,17 +159,174 @@ int main(int argc, char **argv)
   req.group_name = PLANNING_GROUP;
   req.goal_constraints.push_back(pose_goal);
 
+
+
   // We now construct a planning context that encapsulate the scene,
   // the request and the response. We call the planner using this
   // planning context
   planning_interface::PlanningContextPtr context =
       planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
+
   context->solve(res);
   if (res.error_code_.val != res.error_code_.SUCCESS)
   {
     ROS_ERROR("Could not compute plan successfully");
     return 0;
   }
+
+  // -----------------------------------------------------------------------
+  std::vector<double> startJointValues {0.2, 3, 0.45, -1, 1.2, -2, 0};
+  req.start_state.joint_state.position = startJointValues;
+
+  std::vector<double> joint_start = req.start_state.joint_state.position;
+  std::cout<< "sizeeeee " << joint_start.size() << std::endl;
+  if (joint_start.size() == 0){
+      // start_state is not set. We read the joint values fron the robot current state
+      std::vector<double> joint_values;
+      kinematic_state->copyJointGroupPositions(joint_model_group, joint_values);
+      for (std::size_t i = 0; i < joint_names.size(); ++i)
+      {
+        ROS_INFO("====>>>> Joint %s: %f", joint_names[i].c_str(), joint_values[i]);
+      }
+  }else {
+      for(auto x : joint_start){
+              std::cout << "joint values at start state ===>>>> " << x << std::endl;
+      }
+  }
+
+
+//----------------------------------------------------------------------
+  // Now, setup a joint space goal
+  robot_state::RobotState goal_state(robot_model);
+  std::vector<double> joint_values = { -1.0, 0.7, 0.7, -1.5, -0.7, 2.0, 0.0 };
+  goal_state.setJointGroupPositions(joint_model_group, joint_values);
+  moveit_msgs::Constraints joint_goal = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
+  req.goal_constraints.clear();
+  req.goal_constraints.push_back(joint_goal);
+
+
+  std::vector<moveit_msgs::Constraints> goal_constraints = req.goal_constraints;
+ std::cout << "===>>> number of constraints in goal: " << goal_constraints.size() << std::endl;
+
+  std::vector<moveit_msgs::JointConstraint> goal_joint_constraint =
+          goal_constraints.back().joint_constraints;
+
+
+
+  for(auto x : goal_joint_constraint){
+      std::cout << "==>> joint position " << x.position << std::endl;
+  }
+
+
+
+
+//  // Visualize the result
+//  // ^^^^^^^^^^^^^^^^^^^^
+//  ros::Publisher display_publisher =
+//      node_handle.advertise<moveit_msgs::DisplayTrajectory>("/move_group/display_planned_path", 1, true);
+//  moveit_msgs::DisplayTrajectory display_trajectory;
+
+//  /* Visualize the trajectory */
+//  moveit_msgs::MotionPlanResponse response;
+//  res.getMessage(response);
+
+//  display_trajectory.trajectory_start = response.trajectory_start;
+//  display_trajectory.trajectory.push_back(response.trajectory);
+//  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+//  visual_tools.trigger();
+//  display_publisher.publish(display_trajectory);
+
+//  /* Set the state in the planning scene to the final state of the last plan */
+//  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+//  planning_scene->setCurrentState(*robot_state.get());
+
+//  // Display the goal state
+//  visual_tools.publishRobotState(planning_scene->getCurrentStateNonConst(), rviz_visual_tools::GREEN);
+//  visual_tools.publishAxisLabeled(pose.pose, "goal_1");
+//  visual_tools.publishText(text_pose, "Pose Goal (1)", rvt::WHITE, rvt::XLARGE);
+//  visual_tools.trigger();
+
+//  /* We can also use visual_tools to wait for user input */
+//  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+
+//    // Joint Space Goals
+//  // ^^^^^^^^^^^^^^^^^
+//  // Now, setup a joint space goal
+//  robot_state::RobotState goal_state(robot_model);
+//  std::vector<double> joint_values = { -1.0, 0.7, 0.7, -1.5, -0.7, 2.0, 0.0 };
+//  goal_state.setJointGroupPositions(joint_model_group, joint_values);
+//  moveit_msgs::Constraints joint_goal = kinematic_constraints::constructGoalConstraints(goal_state, joint_model_group);
+//  req.goal_constraints.clear();
+//  req.goal_constraints.push_back(joint_goal);
+
+
+
+//  // Call the planner and visualize the trajectory
+//  /* Re-construct the planning context */
+//  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
+//  /* Call the Planner */
+//  context->solve(res);
+//  /* Check that the planning was successful */
+//  if (res.error_code_.val != res.error_code_.SUCCESS)
+//  {
+//    ROS_ERROR("Could not compute plan successfully");
+//    return 0;
+//  }
+//  /* Visualize the trajectory */
+//  res.getMessage(response);
+//  display_trajectory.trajectory.push_back(response.trajectory);
+
+//  /* Now you should see two planned trajectories in series*/
+//  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+//  visual_tools.trigger();
+//  display_publisher.publish(display_trajectory);
+
+//  /* We will add more goals. But first, set the state in the planning
+//     scene to the final state of the last plan */
+//  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+//  planning_scene->setCurrentState(*robot_state.get());
+
+//  // Display the goal state
+//  visual_tools.publishRobotState(planning_scene->getCurrentStateNonConst(), rviz_visual_tools::GREEN);
+//  visual_tools.publishAxisLabeled(pose.pose, "goal_2");
+//  visual_tools.publishText(text_pose, "Joint Space Goal (2)", rvt::WHITE, rvt::XLARGE);
+//  visual_tools.trigger();
+
+//  /* Wait for user input */
+//  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+//  /* Now, we go back to the first goal to prepare for orientation constrained planning */
+//  req.goal_constraints.clear();
+//  req.goal_constraints.push_back(pose_goal);
+//  context = planner_instance->getPlanningContext(planning_scene, req, res.error_code_);
+//  context->solve(res);
+//  res.getMessage(response);
+
+//  display_trajectory.trajectory.push_back(response.trajectory);
+//  visual_tools.publishTrajectoryLine(display_trajectory.trajectory.back(), joint_model_group);
+//  visual_tools.trigger();
+//  display_publisher.publish(display_trajectory);
+
+//  /* Set the state in the planning scene to the final state of the last plan */
+//  robot_state->setJointGroupPositions(joint_model_group, response.trajectory.joint_trajectory.points.back().positions);
+//  planning_scene->setCurrentState(*robot_state.get());
+
+//  // Display the goal state
+//  visual_tools.publishRobotState(planning_scene->getCurrentStateNonConst(), rviz_visual_tools::GREEN);
+//  visual_tools.trigger();
+
+//  /* Wait for user input */
+//  visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to continue the demo");
+
+
+
+
+   //moveit_msgs::JointConstraint joint_goal_const_DOF1 = joint_goal.;
+//joint_goal_const_DOF1.
+
+       //std::cout << "======>>>>> joint_goal_values: " << joint_goal_values << std::endl;
+
 
 
 
