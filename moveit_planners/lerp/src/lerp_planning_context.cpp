@@ -2,10 +2,11 @@
 #include "moveit/planning_interface/planning_request.h"
 #include "moveit/planning_interface/planning_response.h"
 #include <moveit/planning_interface/planning_interface.h>
+#include <moveit_msgs/MotionPlanRequest.h>
 
-LERPPlanningContext::LERPPlanningContext(const std::string& name, const std::string& groupName,
+LERPPlanningContext::LERPPlanningContext(const std::string& context_name, const std::string& group_name,
                                          const robot_model::RobotModelConstPtr& model)
-  : planning_interface::PlanningContext(name, groupName), robot_model_(model)
+  : planning_interface::PlanningContext(context_name, group_name), robot_model_(model)
 {
     dof = robot_model_->getJointModelGroup(group_)->getActiveJointModelNames().size();
     std::cout << "groooooooooooooooooooop name: " << group_ << std::endl;
@@ -24,9 +25,24 @@ bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
 
 
   std::vector<moveit_msgs::Constraints> goal_constraints = request_.goal_constraints;
-  ROS_INFO_STREAM_NAMED(name_,"===>>> number of constraints in goal: " << goal_constraints.size());
 
-  std::vector<moveit_msgs::JointConstraint> goal_joint_constraint = goal_constraints.back().joint_constraints;
+  std::cout << "===>>> number of goal constraints: " << goal_constraints.size() << std::endl;
+  int goal_constraint_index_with_joint_constraint = -1;
+  for(int a = 0; a < goal_constraints.size(); ++a){
+    int g =  goal_constraints[a].joint_constraints.size();
+    printf( "===>>> goal constraints: %i and the number of joint constraints: %i \n", a+1,  g);
+    if (g != 0){
+        goal_constraint_index_with_joint_constraint = a;
+    }
+  }
+
+  if( goal_constraint_index_with_joint_constraint == -1){
+      printf("===>>> no joint constraint is found in the goals");
+      resp.error_code_.val = moveit_msgs::MoveItErrorCodes::INVALID_ROBOT_STATE;
+      exit (EXIT_FAILURE);
+  }
+
+  std::vector<moveit_msgs::JointConstraint> goal_joint_constraint = goal_constraints[goal_constraint_index_with_joint_constraint].joint_constraints;
 
   std::vector<double> joint_goal;
   for (auto x : goal_joint_constraint)
@@ -74,6 +90,7 @@ trajectory_msgs::JointTrajectory LERPPlanningContext::interpolateMultDOF(const s
   traj.points.resize(num+1);
   std::cout << "========== " << traj.points.size() << std::endl;
 
+
   std::vector<double> dt_vector;
   for (int j = 0; j < dof; ++j){
       double dt = ( v2[j] - v1[j] )/num;
@@ -88,6 +105,9 @@ trajectory_msgs::JointTrajectory LERPPlanningContext::interpolateMultDOF(const s
       }
       plotVector("===>>>", v);
       traj.points[i].positions = v;
+      ros::Duration t(i * 0.1);
+      traj.points[i].time_from_start = t;
+      std::cout << "t: " << t << std::endl;
   }
 
   return traj;
