@@ -9,20 +9,19 @@ LERPPlanningContext::LERPPlanningContext(const std::string& context_name, const 
   : planning_interface::PlanningContext(context_name, group_name), robot_model_(model)
 {
     dof = robot_model_->getJointModelGroup(group_)->getActiveJointModelNames().size();
-    std::cout << "groooooooooooooooooooop name: " << group_ << std::endl;
+    std::cout << "===>>> LERPPlanningContext is constructed" << std::endl;
 }
 
 // LERPPlanningContext::~LERPPlanningContext() = default;
 
 bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
 {
-  std::cout << "=====>>>>> solve() is called" << std::endl;
+  std::cout << "====>>> solve() is called" << std::endl;
 
   // get the start state joint values
   std::vector<double> joint_start = request_.start_state.joint_state.position;
 
-  //planning_scene_->getRobotStateUpdated(request_.start_state);
-
+  //planning_scene_->getCurrentStateUpdated(request_.start_state);
 
   std::vector<moveit_msgs::Constraints> goal_constraints = request_.goal_constraints;
 
@@ -37,7 +36,7 @@ bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
   }
 
   if( goal_constraint_index_with_joint_constraint == -1){
-      printf("===>>> no joint constraint is found in the goals");
+      printf("===>>> no joint constraint is found in goals");
       resp.error_code_.val = moveit_msgs::MoveItErrorCodes::INVALID_ROBOT_STATE;
       exit (EXIT_FAILURE);
   }
@@ -50,13 +49,14 @@ bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
     joint_goal.push_back(x.position);
   }
 
-
   resp.trajectory_ =
-      robot_trajectory::RobotTrajectoryPtr(new robot_trajectory::RobotTrajectory(robot_model_, getGroupName()));
+      robot_trajectory::RobotTrajectoryPtr(new robot_trajectory::RobotTrajectory(robot_model_, group_));
 
   robot_state::RobotStatePtr rob_state(new robot_state::RobotState(robot_model_));
 
-  trajectory_msgs::JointTrajectory rob_joint_traj = interpolateMultDOF(joint_start, joint_goal, 5);
+  trajectory_msgs::JointTrajectory rob_joint_traj = interpolateMultDOF(joint_start, joint_goal, 20);
+
+
 
 
   resp.trajectory_->setRobotTrajectoryMsg(*rob_state, rob_joint_traj);
@@ -66,7 +66,8 @@ bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
 
 bool LERPPlanningContext::solve(planning_interface::MotionPlanDetailedResponse& res)
 {
-  return true;
+  ROS_ERROR_NAMED("LERPP", "PlanningContext::solve(planning_interface::MotionPlanDetailedResponse& res) undefined");
+  return false;
 };
 
 bool LERPPlanningContext::terminate()
@@ -81,15 +82,24 @@ void LERPPlanningContext::clear(){
 trajectory_msgs::JointTrajectory LERPPlanningContext::interpolateMultDOF(const std::vector<double>& v1,
                                                                          const std::vector<double>& v2, const int& num)
 {
-    plotVector("v1 ==>>", v1);
-    plotVector("v2 ==>>", v2);
-  trajectory_msgs::JointTrajectory traj;
+    trajectory_msgs::JointTrajectory traj;
 
-  std::cout << " degrees of freedom " << dof << std::endl;
+    robot_state::RobotStatePtr robot_state(new robot_state::RobotState(robot_model_));
+    const robot_state::JointModelGroup* joint_model_group = robot_state->getJointModelGroup(group_);
+
+    const std::vector<std::string> j_names = joint_model_group->getVariableNames();
+
+    // ????????
+//    std_msgs::Header header;
+//    header.seq = 1;
+//    header.stamp = ros::Time::now();
+//    header.frame_id ="link_5";
+//    traj.header = header;
+
+  std::cout << "===>>> degrees of freedom " << dof << std::endl;
 
   traj.points.resize(num+1);
-  std::cout << "========== " << traj.points.size() << std::endl;
-
+  std::cout << "===>>> traj.point.size: " << traj.points.size() << std::endl;
 
   std::vector<double> dt_vector;
   for (int j = 0; j < dof; ++j){
@@ -103,11 +113,12 @@ trajectory_msgs::JointTrajectory LERPPlanningContext::interpolateMultDOF(const s
       for (int k = 0; k < dof; ++k){
           v.push_back(v1[k] + i * dt_vector[k]);
       }
-      plotVector("===>>>", v);
+      plotVector("===>>> ", v);
+      traj.joint_names = j_names;
       traj.points[i].positions = v;
-      ros::Duration t(i * 0.1);
+      ros::Duration t(i * 0.5);
       traj.points[i].time_from_start = t;
-      std::cout << "t: " << t << std::endl;
+      //std::cout << "===>>> t: " << t << std::endl;
   }
 
   return traj;

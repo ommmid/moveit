@@ -24,11 +24,13 @@ public:
   void clear() override;
 
 
+  static void plotVector(const std::string &str, const std::vector<double>& v);
+
 private:
   trajectory_msgs::JointTrajectory interpolateMultDOF(const std::vector<double>& v1, const std::vector<double>& v2, const int& num);
   std::vector<double> interpolateSingleDOF(const double& d1, const double& d2, const int& num);
   int dof;
-  void plotVector(const std::string &str, const std::vector<double>& v);
+
 
   moveit::core::RobotModelConstPtr robot_model_;
 

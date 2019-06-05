@@ -16,23 +16,25 @@
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_state/robot_state.h>
 
+#include "lerp_planning_context.h"
+
 #include <boost/scoped_ptr.hpp>
 
 int main(int argc, char** argv)
 {
   const std::string node_name = "lerp_planning_tutorial";
-  ros::init(argc, argv, "test_lerp");
+  ros::init(argc, argv, node_name);
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
   ros::NodeHandle node_handle("~");
 
   const std::string PLANNING_GROUP = "panda_arm";
-  robot_model_loader::RobotModelLoaderPtr robot_model_loader(
-      new robot_model_loader::RobotModelLoader("robot_description"));
+  robot_model_loader::RobotModelLoaderPtr robot_model_loader(new robot_model_loader::RobotModelLoader("robot_description"));
   robot_model::RobotModelPtr robot_model = robot_model_loader->getModel();
   /* Create a RobotState and JointModelGroup to keep track of the current robot pose and planning group*/
   robot_state::RobotStatePtr robot_state(new robot_state::RobotState(robot_model));
   const robot_state::JointModelGroup* joint_model_group = robot_state->getJointModelGroup(PLANNING_GROUP);
 
-  robot_state::RobotStatePtr kinematic_state(new robot_state::RobotState(robot_model));
   const std::vector<std::string>& joint_names = joint_model_group->getVariableNames();
 
   planning_scene::PlanningScenePtr planning_scene(new planning_scene::PlanningScene(robot_model));
@@ -45,10 +47,10 @@ int main(int argc, char** argv)
   psm->startStateMonitor();
   psm->startSceneMonitor();
 
-  //  while (!psm->getStateMonitor()->haveCompleteState() && ros::ok())
-  //  {
-  //    ROS_INFO_STREAM_THROTTLE_NAMED(1, node_name, "Waiting for complete state from topic ");
-  //  }
+    while (!psm->getStateMonitor()->haveCompleteState() && ros::ok())
+    {
+      ROS_INFO_STREAM_THROTTLE_NAMED(1, node_name, "Waiting for complete state from topic ");
+    }
   // We will now construct a loader to load a planner, by name.
   // Note that we are using the ROS pluginlib library here.
   boost::scoped_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader;
@@ -68,6 +70,7 @@ int main(int argc, char** argv)
   {
     planner_plugin_loader.reset(new pluginlib::ClassLoader<planning_interface::PlannerManager>(
         "moveit_core", "planning_interface::PlannerManager"));
+    printf("===>>> planner_plugin_name: %s \n", planner_plugin_name.c_str());
   }
   catch (pluginlib::PluginlibException& ex)
   {
@@ -76,7 +79,7 @@ int main(int argc, char** argv)
   try
   {
     planner_instance.reset(planner_plugin_loader->createUnmanagedInstance(planner_plugin_name));
-    if (!planner_instance->initialize(robot_model, node_handle.getNamespace()))
+    if (!planner_instance->initialize(robot_model, node_handle.getNamespace())) // namespace ????. I dont use it
       ROS_FATAL_STREAM("Could not initialize planner instance");
     ROS_INFO_STREAM("Using planning interface '" << planner_instance->getDescription() << "'");
   }
@@ -117,7 +120,7 @@ int main(int argc, char** argv)
   visual_tools.prompt("Press 'next' in the RvizVisualToolsGui window to start the demo");
 
   // Pose Goal
-  // ^^^^^^^^^
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^
   // We will now create a motion plan request for the arm of the Panda
   // specifying the desired pose of the end-effector as input.
   visual_tools.publishRobotState(planning_scene->getCurrentStateNonConst(), rviz_visual_tools::GREEN);
@@ -149,32 +152,45 @@ int main(int argc, char** argv)
   req.group_name = PLANNING_GROUP;
   req.goal_constraints.push_back(pose_goal);
 
-  // -----------------------------------------------------------------------
-  std::vector<double> startJointValues{ 0.2, 0.3, 0.45, 0.8, 1.2, 1.8, 2 };
-  req.start_state.joint_state.position = startJointValues;
+  // set the request start joint state
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+//  std::vector<double> startJointValues{ 0.2, 0.3, 0.45, 0.8, 1.2, 1.8, 2 };
+//  req.start_state.joint_state.position = startJointValues;
 
-  std::vector<double> joint_start = req.start_state.joint_state.position;
-  std::cout << "sizeeeee " << joint_start.size() << std::endl;
-  if (joint_start.size() == 0)
-  {
-    // start_state is not set. We read the joint values fron the robot current state
-    std::vector<double> joint_values;
-    kinematic_state->copyJointGroupPositions(joint_model_group, joint_values);
-    for (std::size_t i = 0; i < joint_names.size(); ++i)
-    {
-      ROS_INFO("====>>>> Joint %s: %f", joint_names[i].c_str(), joint_values[i]);
-    }
-  }
-  else
-  {
-    for (auto x : joint_start)
-    {
-      std::cout << "joint values at start state ===>>>> " << x << std::endl;
-    }
-  }
+//  std::vector<double> joint_start = req.start_state.joint_state.position;
+//  std::cout << "sizeeeee " << joint_start.size() << std::endl;
+//  if (joint_start.size() == 0)
+//  {
+//    // start_state is not set. We read the joint values fron the robot current state
+//    std::vector<double> joint_values;
+//    robot_state->copyJointGroupPositions(joint_model_group, joint_values);
+//    for (std::size_t i = 0; i < joint_names.size(); ++i)
+//    {
+//      ROS_INFO("====>>>> Joint %s: %f", joint_names[i].c_str(), joint_values[i]);
+//    }
+//  }
+//  else
+//  {
+//    for (auto x : joint_start)
+//    {
+//      std::cout << "joint values at start state ===>>>> " << x << std::endl;
+//    }
+//  }
 
-  //----------------------------------------------------------------------
-  // Now, setup a joint space goal
+  // get the joint values of the start state
+  std::vector<double> start_joint_values;
+  robot_state->copyJointGroupPositions(joint_model_group, start_joint_values);
+  int r = 0;
+  for (auto x : start_joint_values)
+  {
+    printf("===>>> joint: %s with value: %f \n", joint_names[r].c_str(), x);
+    ++r;
+  }
+  req.start_state.joint_state.position = start_joint_values;
+
+
+  // set the goal joint state
+  // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   robot_state::RobotState goal_state(robot_model);
   std::vector<double> joint_values = { 0.8, 0.7, 1, 1.3, 1.9, 2.2, 3 };
   goal_state.setJointGroupPositions(joint_model_group, joint_values);
@@ -182,19 +198,17 @@ int main(int argc, char** argv)
   req.goal_constraints.clear();
   req.goal_constraints.push_back(joint_goal);
 
+  // retrive joint values at goal
   std::vector<moveit_msgs::Constraints> goal_constraints = req.goal_constraints;
   std::cout << "===>>> number of constraints in goal: " << goal_constraints.size() << std::endl;
-
-  std::vector<moveit_msgs::JointConstraint> goal_joint_constraint = goal_constraints.back().joint_constraints;
-
+  std::vector<moveit_msgs::JointConstraint> goal_joint_constraint = goal_constraints[0].joint_constraints;
   for (auto x : goal_joint_constraint)
   {
-    std::cout << "==>> joint position " << x.position << std::endl;
+    std::cout << "==>> joint position at goal " << x.position << std::endl;
   }
 
 
   //------
-
   // We now construct a planning context that encapsulate the scene,
   // the request and the response. We call the planner using this
   // planning context
@@ -208,8 +222,26 @@ int main(int argc, char** argv)
     return 0;
   }
 
+  // how is the trajectory in the response
+  moveit_msgs::MotionPlanResponse message;
+  res.getMessage(message); // res is of type planning_interface::MotionPlanResponse
+  moveit_msgs::RobotTrajectory solution_traj = message.trajectory;
 
+  int number_of_steps = solution_traj.joint_trajectory.points.size();
+  printf("numner of timesteps in the solution trajectory: %i" , number_of_steps);
 
+  for (int w = 0; w < number_of_steps; ++w){
+      std::vector<double> vec;
+      vec = solution_traj.joint_trajectory.points[w].positions;
+
+      std::cout << std::endl << "************ " << " ";
+      for (int i = 0; i < vec.size(); ++i){
+          std::cout << vec[i] << " ";
+      }
+      std::cout << std::endl;
+
+  }
+  std::cout << "header ===> " << solution_traj.joint_trajectory.header << std::endl;
 
 
   // --------------------------------------------------------------------
