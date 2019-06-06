@@ -33,6 +33,7 @@ private:
 
 
   moveit::core::RobotModelConstPtr robot_model_;
+  robot_state::RobotStatePtr robot_state_;
 
 };
 

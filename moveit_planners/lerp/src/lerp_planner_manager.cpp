@@ -131,6 +131,10 @@ public:
 
     context->setPlanningScene(ps);
     context->setMotionPlanRequest(req);
+
+
+
+
     error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
 
     return context;

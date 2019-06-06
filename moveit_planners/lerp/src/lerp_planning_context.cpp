@@ -3,34 +3,38 @@
 #include "moveit/planning_interface/planning_response.h"
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit_msgs/MotionPlanRequest.h>
+#include <moveit/planning_scene/planning_scene.h>
 
 LERPPlanningContext::LERPPlanningContext(const std::string& context_name, const std::string& group_name,
                                          const robot_model::RobotModelConstPtr& model)
   : planning_interface::PlanningContext(context_name, group_name), robot_model_(model)
 {
-    dof = robot_model_->getJointModelGroup(group_)->getActiveJointModelNames().size();
     std::cout << "===>>> LERPPlanningContext is constructed" << std::endl;
-}
 
-// LERPPlanningContext::~LERPPlanningContext() = default;
+    dof = robot_model_->getJointModelGroup(group_)->getActiveJointModelNames().size();
+    robot_state_  = robot_state::RobotStatePtr(new robot_state::RobotState(robot_model_));
+    // plot the jointvalues here
+    robot_state_->setToDefaultValues();
+    robot_state_->update();
+
+    // plot the jointvalues here
+}
 
 bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
 {
   std::cout << "====>>> solve() is called" << std::endl;
 
   // get the start state joint values
-  std::vector<double> joint_start = request_.start_state.joint_state.position;
-
-  //planning_scene_->getCurrentStateUpdated(request_.start_state);
+  std::vector<double> start_joint_values = request_.start_state.joint_state.position;
 
   std::vector<moveit_msgs::Constraints> goal_constraints = request_.goal_constraints;
 
   std::cout << "===>>> number of goal constraints: " << goal_constraints.size() << std::endl;
   int goal_constraint_index_with_joint_constraint = -1;
   for(int a = 0; a < goal_constraints.size(); ++a){
-    int g =  goal_constraints[a].joint_constraints.size();
-    printf( "===>>> goal constraints: %i and the number of joint constraints: %i \n", a+1,  g);
-    if (g != 0){
+    int joint_constraints_size =  goal_constraints[a].joint_constraints.size();
+    printf( "===>>> goal constraints: %i and the number of joint constraints: %i \n", a+1,  joint_constraints_size);
+    if (joint_constraints_size != 0){
         goal_constraint_index_with_joint_constraint = a;
     }
   }
@@ -43,23 +47,21 @@ bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
 
   std::vector<moveit_msgs::JointConstraint> goal_joint_constraint = goal_constraints[goal_constraint_index_with_joint_constraint].joint_constraints;
 
-  std::vector<double> joint_goal;
+  std::vector<double> goal_joint_values;
   for (auto x : goal_joint_constraint)
   {
-    joint_goal.push_back(x.position);
+    goal_joint_values.push_back(x.position);
   }
 
   resp.trajectory_ =
       robot_trajectory::RobotTrajectoryPtr(new robot_trajectory::RobotTrajectory(robot_model_, group_));
 
-  robot_state::RobotStatePtr rob_state(new robot_state::RobotState(robot_model_));
-
-  trajectory_msgs::JointTrajectory rob_joint_traj = interpolateMultDOF(joint_start, joint_goal, 20);
 
 
+  trajectory_msgs::JointTrajectory rob_joint_traj = interpolateMultDOF(start_joint_values, goal_joint_values, 40);
 
 
-  resp.trajectory_->setRobotTrajectoryMsg(*rob_state, rob_joint_traj);
+  resp.trajectory_->setRobotTrajectoryMsg(*robot_state_, rob_joint_traj);
 
   return true;
 };
@@ -67,7 +69,7 @@ bool LERPPlanningContext::solve(planning_interface::MotionPlanResponse& resp)
 bool LERPPlanningContext::solve(planning_interface::MotionPlanDetailedResponse& res)
 {
   ROS_ERROR_NAMED("LERPP", "PlanningContext::solve(planning_interface::MotionPlanDetailedResponse& res) undefined");
-  return false;
+  return true;
 };
 
 bool LERPPlanningContext::terminate()
@@ -84,17 +86,12 @@ trajectory_msgs::JointTrajectory LERPPlanningContext::interpolateMultDOF(const s
 {
     trajectory_msgs::JointTrajectory traj;
 
-    robot_state::RobotStatePtr robot_state(new robot_state::RobotState(robot_model_));
-    const robot_state::JointModelGroup* joint_model_group = robot_state->getJointModelGroup(group_);
+
+    const robot_state::JointModelGroup* joint_model_group = robot_state_->getJointModelGroup(group_);
 
     const std::vector<std::string> j_names = joint_model_group->getVariableNames();
 
-    // ????????
-//    std_msgs::Header header;
-//    header.seq = 1;
-//    header.stamp = ros::Time::now();
-//    header.frame_id ="link_5";
-//    traj.header = header;
+    //robot_model_->getJointModelGroup(group_);
 
   std::cout << "===>>> degrees of freedom " << dof << std::endl;
 
@@ -111,14 +108,20 @@ trajectory_msgs::JointTrajectory LERPPlanningContext::interpolateMultDOF(const s
   {
       std::vector<double> v;
       for (int k = 0; k < dof; ++k){
-          v.push_back(v1[k] + i * dt_vector[k]);
+          double j_value = v1[k] + i * dt_vector[k];
+          v.push_back(j_value);
+
+          robot_state_->setJointPositions(j_names[k], &j_value);
+          robot_state_->update();
       }
+      bool isValid = planning_scene_->isStateValid(*robot_state_, group_, false);
+      printf("the robot at state %i is valid ? %s", i, isValid ? "true" : "false \n");
+
       plotVector("===>>> ", v);
       traj.joint_names = j_names;
       traj.points[i].positions = v;
       ros::Duration t(i * 0.5);
       traj.points[i].time_from_start = t;
-      //std::cout << "===>>> t: " << t << std::endl;
   }
 
   return traj;
