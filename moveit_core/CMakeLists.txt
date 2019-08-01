@@ -13,8 +13,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   message("${PROJECT_NAME}: You did not request a specific build type: Choosing 'Release' for maximum performance")
   set(CMAKE_BUILD_TYPE Release)
@@ -22,6 +20,8 @@ endif()
 
 find_package(Boost REQUIRED system filesystem date_time thread iostreams)
 find_package(Eigen3 REQUIRED)
+ # TODO: Move collision detection into separate packages
+find_package(Bullet REQUIRED)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBFCL_PC REQUIRED fcl)
@@ -70,6 +70,7 @@ set(THIS_PACKAGE_INCLUDE_DIRS
     backtrace/include
     collision_detection/include
     collision_detection_fcl/include
+    collision_detection_bullet/include
     constraint_samplers/include
     controller_manager/include
     distance_field/include
@@ -106,6 +107,7 @@ catkin_package(
     moveit_planning_interface
     moveit_collision_detection
     moveit_collision_detection_fcl
+    moveit_collision_detection_bullet
     moveit_kinematic_constraints
     moveit_planning_scene
     moveit_constraint_samplers
@@ -142,6 +144,7 @@ catkin_package(
     OCTOMAP
     urdfdom
     urdfdom_headers
+    BULLET
     )
 
 
@@ -156,6 +159,7 @@ endif()
 
 include_directories(SYSTEM ${EIGEN3_INCLUDE_DIRS}
                            ${LIBFCL_INCLUDE_DIRS}
+                           ${BULLET_INCLUDE_DIRS}
                            )
 
 #catkin_lint: ignore_once external_directory  (${VERSION_FILE_PATH})
@@ -195,6 +199,7 @@ add_subdirectory(robot_state)
 add_subdirectory(robot_trajectory)
 add_subdirectory(collision_detection)
 add_subdirectory(collision_detection_fcl)
+add_subdirectory(collision_detection_bullet)
 add_subdirectory(kinematic_constraints)
 add_subdirectory(planning_scene)
 add_subdirectory(constraint_samplers)

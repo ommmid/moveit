@@ -95,6 +95,15 @@ struct Contact
 
   /** \brief The type of the second body involved in the contact */
   BodyType body_type_2;
+
+  /** \brief The distance percentage between casted poses until collision.
+   *
+   *  If the value is 0, then the collision occured in the start pose. If the value is 1, then the collision occured in
+   *  the end pose. */
+  double percent_interpolation;
+
+  /** \brief The two nearest points connecting the two bodies */
+  Eigen::Vector3d nearest_points[2];
 };
 
 /** \brief When collision costs are computed, this structure contains information about the partial cost incurred in a
@@ -162,11 +171,10 @@ struct CollisionResult
   /** \brief Number of contacts returned */
   std::size_t contact_count;
 
-  /** \brief A map returning the pairs of ids of the bodies in contact, plus information about the contacts themselves
-   */
+  /** \brief A map returning the pairs of body ids in contact, plus their contact details */
   ContactMap contacts;
 
-  /** \brief When costs are computed, the individual cost sources are  */
+  /** \brief These are the individual cost sources when costs are computed */
   std::set<CostSource> cost_sources;
 };
 
@@ -197,7 +205,7 @@ struct CollisionRequest
   /** \brief If true, a collision cost is computed */
   bool cost;
 
-  /** \brief If true, compute contacts */
+  /** \brief If true, compute contacts. Otherwise only a binary collision yes/no is reported. */
   bool contacts;
 
   /** \brief Overall maximum number of contacts to compute */
@@ -224,14 +232,15 @@ namespace DistanceRequestTypes
 {
 enum DistanceRequestType
 {
-  GLOBAL,   /// Find the global minimum
-  SINGLE,   /// Find the global minimum for each pair
-  LIMITED,  /// Find a limited(max_contacts_per_body) set of contacts for a given pair
-  ALL       /// Find all the contacts for a given pair
+  GLOBAL,   ///< Find the global minimum
+  SINGLE,   ///< Find the global minimum for each pair
+  LIMITED,  ///< Find a limited(max_contacts_per_body) set of contacts for a given pair
+  ALL       ///< Find all the contacts for a given pair
 };
 }
 typedef DistanceRequestTypes::DistanceRequestType DistanceRequestType;
 
+/** \brief Representation of a distance-reporting request */
 struct DistanceRequest
 {
   DistanceRequest()
@@ -264,7 +273,7 @@ struct DistanceRequest
 
   /// Indicate the type of distance request. If using type=ALL, it is
   /// recommended to set max_contacts_per_body to the expected number
-  /// of contacts per pair becaused it is uesed to reserving space.
+  /// of contacts per pair because it is used to reserve space.
   DistanceRequestType type;
 
   /// Maximum number of contacts to store for bodies (multiple bodies may be within distance threshold)
@@ -280,7 +289,7 @@ struct DistanceRequest
   const AllowedCollisionMatrix* acm;
 
   /// Only calculate distances for objects within this threshold to each other.
-  /// If set this can significantly to reduce number of queries.
+  /// If set this can significantly reduce the number of queries.
   double distance_threshold;
 
   /// Log debug information
@@ -291,6 +300,7 @@ struct DistanceRequest
   bool compute_gradient;
 };
 
+/** \brief Generic representation of the distance information for a pair of objects */
 struct DistanceResultsData
 {
   DistanceResultsData()
@@ -356,8 +366,10 @@ struct DistanceResultsData
   }
 };
 
+/** \brief Mapping between the names of the collision objects and the DistanceResultData. */
 typedef std::map<const std::pair<std::string, std::string>, std::vector<DistanceResultsData> > DistanceMap;
 
+/** \brief Result of a distance request. */
 struct DistanceResult
 {
   DistanceResult() : collision(false)

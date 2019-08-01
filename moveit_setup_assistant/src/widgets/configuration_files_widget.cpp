@@ -183,7 +183,7 @@ bool ConfigurationFilesWidget::loadGenFiles()
   fs::path template_package_path = config_data_->setup_assistant_path_;
   template_package_path /= "templates";
   template_package_path /= "moveit_config_pkg_template";
-  config_data_->template_package_path_ = template_package_path.make_preferred().native();
+  config_data_->template_package_path_ = template_package_path.make_preferred().string();
 
   if (!fs::is_directory(config_data_->template_package_path_))
   {
@@ -375,6 +375,18 @@ bool ConfigurationFilesWidget::loadGenFiles()
   file.write_on_changes = 0;
   gen_files_.push_back(file);
 
+  // trajopt_planning_pipeline.launch
+  // --------------------------------------------------------------------------------------
+  file.file_name_ = "trajopt_planning_pipeline.launch.xml";
+  file.rel_path_ = config_data_->appendPaths(launch_path, file.file_name_);
+  template_path = config_data_->appendPaths(template_launch_path, file.file_name_);
+  file.description_ = "Intended to be included in other launch files that require the TrajOpt planning plugin. Defines "
+                      "the proper plugin name on the parameter server and a default selection of planning request "
+                      "adapters.";
+  file.gen_func_ = boost::bind(&ConfigurationFilesWidget::copyTemplate, this, template_path, _1);
+  file.write_on_changes = 0;
+  gen_files_.push_back(file);
+
   // chomp_planning_pipeline.launch
   // --------------------------------------------------------------------------------------
   file.file_name_ = "chomp_planning_pipeline.launch.xml";
@@ -428,6 +440,15 @@ bool ConfigurationFilesWidget::loadGenFiles()
   file.rel_path_ = config_data_->appendPaths(launch_path, file.file_name_);
   template_path = config_data_->appendPaths(template_launch_path, file.file_name_);
   file.description_ = "Launch file for benchmarking OMPL planners";
+  file.gen_func_ = boost::bind(&ConfigurationFilesWidget::copyTemplate, this, template_path, _1);
+  file.write_on_changes = 0;
+  gen_files_.push_back(file);
+
+  // run_benchmark_trajopt.launch --------------------------------------------------------------------------------------
+  file.file_name_ = "run_benchmark_trajopt.launch";
+  file.rel_path_ = config_data_->appendPaths(launch_path, file.file_name_);
+  template_path = config_data_->appendPaths(template_launch_path, file.file_name_);
+  file.description_ = "Launch file for benchmarking TrajOpt planners";
   file.gen_func_ = boost::bind(&ConfigurationFilesWidget::copyTemplate, this, template_path, _1);
   file.write_on_changes = 0;
   gen_files_.push_back(file);
@@ -1008,7 +1029,7 @@ const std::string ConfigurationFilesWidget::getPackageName(std::string package_p
   std::string package_name;
   fs::path fs_package_path = package_path;
 
-  package_name = fs_package_path.filename().c_str();
+  package_name = fs_package_path.filename().string();
 
   // check for empty
   if (package_name.empty())
@@ -1086,7 +1107,7 @@ void ConfigurationFilesWidget::loadTemplateStrings()
     const srdf::Model::VirtualJoint& vj = config_data_->srdf_->virtual_joints_[i];
     if (vj.type_ != "fixed")
       vjb << "  <node pkg=\"tf2_ros\" type=\"static_transform_publisher\" name=\"virtual_joint_broadcaster_" << i
-          << "\" args=\"0 0 0 0 0 0 " << vj.parent_frame_ << " " << vj.child_link_ << " 100\" />" << std::endl;
+          << "\" args=\"0 0 0 0 0 0 " << vj.parent_frame_ << " " << vj.child_link_ << "\" />" << std::endl;
   }
   addTemplateString("[VIRTUAL_JOINT_BROADCASTER]", vjb.str());
 

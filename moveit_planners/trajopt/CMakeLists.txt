@@ -67,12 +67,11 @@ target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES} pro
 # TrajOpt planning plugin
 add_library(moveit_trajopt_planner_plugin src/trajopt_planner_manager.cpp)
 set_target_properties(moveit_trajopt_planner_plugin PROPERTIES VERSION "${${PROJECT_NAME}_VERSION}")
+
 target_link_libraries(moveit_trajopt_planner_plugin ${PROJECT_NAME} ${catkin_LIBRARIES})
 
 add_executable(test_trajopt src/test_trajopt.cpp)
 target_link_libraries(test_trajopt  ${PROJECT_NAME} ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-
-
 
 #############
 ## Install ##
@@ -126,3 +125,4 @@ if(CATKIN_ENABLE_TESTING)
   )
 
 endif()
+

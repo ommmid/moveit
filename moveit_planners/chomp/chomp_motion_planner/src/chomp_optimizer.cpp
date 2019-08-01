@@ -322,7 +322,7 @@ bool ChompOptimizer::optimize()
   {
     ros::WallTime for_time = ros::WallTime::now();
     performForwardKinematics();
-    ROS_INFO_STREAM("Forward kinematics took " << (ros::WallTime::now() - for_time));
+    ROS_DEBUG_STREAM("Forward kinematics took " << (ros::WallTime::now() - for_time));
     double c_cost = getCollisionCost();
     double s_cost = getSmoothnessCost();
     double cost = c_cost + s_cost;
@@ -353,15 +353,13 @@ bool ChompOptimizer::optimize()
     {
       best_group_trajectory_ = group_trajectory_.getTrajectory();
       best_group_trajectory_cost_ = cost;
+      last_improvement_iteration_ = iteration_;
     }
-    else
+    else if (cost < best_group_trajectory_cost_)
     {
-      if (cost < best_group_trajectory_cost_)
-      {
-        best_group_trajectory_ = group_trajectory_.getTrajectory();
-        best_group_trajectory_cost_ = cost;
-        last_improvement_iteration_ = iteration_;
-      }
+      best_group_trajectory_ = group_trajectory_.getTrajectory();
+      best_group_trajectory_cost_ = cost;
+      last_improvement_iteration_ = iteration_;
     }
     calculateSmoothnessIncrements();
     calculateCollisionIncrements();
@@ -540,10 +538,10 @@ bool ChompOptimizer::isCurrentTrajectoryMeshToMeshCollisionFree() const
   moveit_msgs::RobotTrajectory traj;
   traj.joint_trajectory.joint_names = joint_names_;
 
-  for (int i = 0; i < group_trajectory_.getNumPoints(); i++)
+  for (size_t i = 0; i < group_trajectory_.getNumPoints(); i++)
   {
     trajectory_msgs::JointTrajectoryPoint point;
-    for (int j = 0; j < group_trajectory_.getNumJoints(); j++)
+    for (size_t j = 0; j < group_trajectory_.getNumJoints(); j++)
     {
       point.positions.push_back(best_group_trajectory_(i, j));
     }
@@ -1014,7 +1012,7 @@ void ChompOptimizer::setRobotStateFromPoint(ChompTrajectory& group_trajectory, i
 
   std::vector<double> joint_states;
   joint_states.reserve(group_trajectory.getNumJoints());
-  for (int j = 0; j < group_trajectory.getNumJoints(); j++)
+  for (size_t j = 0; j < group_trajectory.getNumJoints(); j++)
     joint_states.emplace_back(point(0, j));
 
   state_.setJointGroupPositions(planning_group_, joint_states);
