@@ -35,8 +35,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_CORE_ROBOT_MODEL_
-#define MOVEIT_CORE_ROBOT_MODEL_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/exceptions/exceptions.h>
@@ -54,10 +53,10 @@
 #include <Eigen/Geometry>
 #include <iostream>
 
-/** \brief Main namespace for MoveIt! */
+/** \brief Main namespace for MoveIt */
 namespace moveit
 {
-/** \brief Core components of MoveIt! */
+/** \brief Core components of MoveIt */
 namespace core
 {
 MOVEIT_CLASS_FORWARD(RobotModel);
@@ -621,5 +620,3 @@ protected:
 
 namespace robot_model = moveit::core;
 namespace robot_state = moveit::core;
-
-#endif

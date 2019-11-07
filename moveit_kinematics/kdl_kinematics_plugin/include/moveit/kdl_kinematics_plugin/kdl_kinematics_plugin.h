@@ -34,8 +34,7 @@
 
 /* Author: Sachin Chitta, David Lu!!, Ugo Cupcic */
 
-#ifndef MOVEIT_ROS_PLANNING_KDL_KINEMATICS_PLUGIN_
-#define MOVEIT_ROS_PLANNING_KDL_KINEMATICS_PLUGIN_
+#pragma once
 
 // ROS
 #include <ros/ros.h>
@@ -53,7 +52,7 @@
 #include <kdl/chainfksolver.hpp>
 #include <kdl/chainiksolver.hpp>
 
-// MoveIt!
+// MoveIt
 #include <moveit/kinematics_base/kinematics_base.h>
 #include <moveit/kdl_kinematics_plugin/joint_mimic.hpp>
 #include <moveit/robot_model/robot_model.h>
@@ -196,5 +195,3 @@ private:
   double orientation_vs_position_weight_;
 };
 }
-
-#endif

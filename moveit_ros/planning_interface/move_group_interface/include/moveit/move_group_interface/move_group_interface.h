@@ -35,8 +35,7 @@
 
 /* Author: Ioan Sucan, Sachin Chitta */
 
-#ifndef MOVEIT_MOVE_GROUP_INTERFACE_MOVE_GROUP_INTERFACE_
-#define MOVEIT_MOVE_GROUP_INTERFACE_MOVE_GROUP_INTERFACE_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/macros/deprecation.h>
@@ -58,7 +57,7 @@
 
 namespace moveit
 {
-/** \brief Simple interface to MoveIt! components */
+/** \brief Simple interface to MoveIt components */
 namespace planning_interface
 {
 class MoveItErrorCode : public moveit_msgs::MoveItErrorCodes
@@ -1003,5 +1002,3 @@ private:
 };
 }  // namespace planning_interface
 }  // namespace moveit
-
-#endif

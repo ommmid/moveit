@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan, Adam Leeper */
 
-#ifndef MOVEIT_ROBOT_TRAJECTORY_KINEMATIC_TRAJECTORY_
-#define MOVEIT_ROBOT_TRAJECTORY_KINEMATIC_TRAJECTORY_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/macros/deprecation.h>
@@ -202,6 +201,8 @@ public:
 
   void clear();
 
+  double getDuration() const;
+
   double getAverageSegmentDuration() const;
 
   void getRobotTrajectoryMsg(moveit_msgs::RobotTrajectory& trajectory) const;
@@ -263,5 +264,3 @@ private:
   std::deque<double> duration_from_previous_;
 };
 }
-
-#endif

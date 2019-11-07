@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan, Acorn Pooley, Sachin Chitta */
 
-#ifndef MOVEIT_COLLISION_DETECTION_WORLD_
-#define MOVEIT_COLLISION_DETECTION_WORLD_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 
@@ -288,7 +287,7 @@ private:
   /** The objects maintained in the world */
   std::map<std::string, ObjectPtr> objects_;
 
-  /* observers to call when something changes */
+  /** Wrapper for a callback function to call when something changes in the world */
   class Observer
   {
   public:
@@ -297,8 +296,8 @@ private:
     }
     ObserverCallbackFn callback_;
   };
+
+  /// All registered observers of this world representation
   std::vector<Observer*> observers_;
 };
 }
-
-#endif

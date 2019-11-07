@@ -34,7 +34,7 @@
 
 /* Author: Ioan Sucan, Mathias Lüdtke, Dave Coleman */
 
-// MoveIt!
+// MoveIt
 #include <moveit/rdf_loader/rdf_loader.h>
 #include <moveit/profiler/profiler.h>
 
@@ -49,6 +49,11 @@
 #include <fstream>
 #include <streambuf>
 #include <algorithm>
+
+#ifdef _WIN32
+#define popen _popen
+#define pclose _pclose
+#endif
 
 rdf_loader::RDFLoader::RDFLoader(const std::string& robot_description)
 {

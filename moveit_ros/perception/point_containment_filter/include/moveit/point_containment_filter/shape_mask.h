@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_POINT_CONTAINMENT_FILTER_SELF_MASK_
-#define MOVEIT_POINT_CONTAINMENT_FILTER_SELF_MASK_
+#pragma once
 
 #include <sensor_msgs/PointCloud2.h>
 #include <geometric_shapes/bodies.h>
@@ -106,7 +105,7 @@ private:
 
   struct SortBodies
   {
-    bool operator()(const SeeShape& b1, const SeeShape& b2)
+    bool operator()(const SeeShape& b1, const SeeShape& b2) const
     {
       if (b1.volume > b2.volume)
         return true;
@@ -129,5 +128,3 @@ private:
   std::vector<bodies::BoundingSphere> bspheres_;
 };
 }
-
-#endif

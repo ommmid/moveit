@@ -34,8 +34,7 @@
 
 /* Author: Ryan Luna */
 
-#ifndef MOVEIT_ROS_BENCHMARKS_BENCHMARK_EXECUTOR_
-#define MOVEIT_ROS_BENCHMARKS_BENCHMARK_EXECUTOR_
+#pragma once
 
 #include <moveit/benchmarks/BenchmarkOptions.h>
 
@@ -46,7 +45,7 @@
 #include <moveit/warehouse/state_storage.h>
 #include <moveit/warehouse/constraints_storage.h>
 #include <moveit/warehouse/trajectory_constraints_storage.h>
-#include <moveit/planning_interface/planning_interface.h>
+#include <moveit/planning_pipeline/planning_pipeline.h>
 #include <warehouse_ros/database_loader.h>
 #include <pluginlib/class_loader.hpp>
 
@@ -141,8 +140,29 @@ protected:
   virtual bool initializeBenchmarks(const BenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
                                     std::vector<BenchmarkRequest>& queries);
 
+  /// Initialize benchmark query data from start states and constraints
+  virtual bool loadBenchmarkQueryData(const BenchmarkOptions& opts, moveit_msgs::PlanningScene& scene_msg,
+                                      std::vector<StartState>& start_states,
+                                      std::vector<PathConstraints>& path_constraints,
+                                      std::vector<PathConstraints>& goal_constraints,
+                                      std::vector<TrajectoryConstraints>& traj_constraints,
+                                      std::vector<BenchmarkRequest>& queries);
+
   virtual void collectMetrics(PlannerRunData& metrics, const planning_interface::MotionPlanDetailedResponse& mp_res,
                               bool solved, double total_time);
+
+  /// Compute the similarity of each (final) trajectory to all other (final) trajectories in the experiment and write
+  /// the results to planner_data metrics
+  void computeAveragePathSimilarities(PlannerBenchmarkData& planner_data,
+                                      const std::vector<planning_interface::MotionPlanDetailedResponse>& responses,
+                                      const std::vector<bool>& solved);
+
+  /// Helper function used by computeAveragePathSimilarities() for computing a heuristic distance metric between two
+  /// robot trajectories. This function aligns both trajectories in a greedy fashion and computes the mean waypoint
+  /// distance averaged over all aligned waypoints. Using a greedy approach is more efficient than dynamic time warping,
+  /// and seems to be sufficient for similar trajectories.
+  bool computeTrajectoryDistance(const robot_trajectory::RobotTrajectory& traj_first,
+                                 const robot_trajectory::RobotTrajectory& traj_second, double& result_distance);
 
   virtual void writeOutput(const BenchmarkRequest& brequest, const std::string& start_time, double benchmark_duration);
 
@@ -192,8 +212,7 @@ protected:
 
   BenchmarkOptions options_;
 
-  std::shared_ptr<pluginlib::ClassLoader<planning_interface::PlannerManager>> planner_plugin_loader_;
-  std::map<std::string, planning_interface::PlannerManagerPtr> planner_interfaces_;
+  std::map<std::string, planning_pipeline::PlanningPipelinePtr> planning_pipelines_;
 
   std::vector<PlannerBenchmarkData> benchmark_data_;
 
@@ -205,5 +224,3 @@ protected:
   std::vector<QueryCompletionEventFunction> query_end_fns_;
 };
 }
-
-#endif

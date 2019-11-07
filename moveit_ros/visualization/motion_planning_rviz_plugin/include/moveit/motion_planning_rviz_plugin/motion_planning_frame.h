@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_FRAME_
-#define MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_FRAME_
+#pragma once
 
 #include <QWidget>
 #include <QTreeWidgetItem>
@@ -315,7 +314,7 @@ private:
   ros::Publisher planning_scene_publisher_;
   ros::Publisher planning_scene_world_publisher_;
 
-  collision_detection::CollisionWorld::ObjectConstPtr scaled_object_;
+  collision_detection::CollisionEnv::ObjectConstPtr scaled_object_;
 
   std::vector<std::pair<std::string, bool> > known_collision_objects_;
   long unsigned int known_collision_objects_version_;
@@ -365,5 +364,3 @@ void MotionPlanningFrame::waitForAction(const T& action, const ros::NodeHandle& 
     ROS_DEBUG("Connected to '%s'", name.c_str());
 };
 }
-
-#endif

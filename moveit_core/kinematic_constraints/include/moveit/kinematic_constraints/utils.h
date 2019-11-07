@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_KINEMATIC_CONSTRAINTS_UTILS_
-#define MOVEIT_KINEMATIC_CONSTRAINTS_UTILS_
+#pragma once
 
 #include <moveit_msgs/MotionPlanRequest.h>
 #include <geometry_msgs/PointStamped.h>
@@ -68,7 +67,7 @@ moveit_msgs::Constraints mergeConstraints(const moveit_msgs::Constraints& first,
                                           const moveit_msgs::Constraints& second);
 
 /** \brief Check if any constraints were specified */
-bool isEmpty(const moveit_msgs::Constraints& constr);
+[[deprecated("Use moveit/utils/message_checks.h instead")]] bool isEmpty(const moveit_msgs::Constraints& constr);
 
 std::size_t countIndividualConstraints(const moveit_msgs::Constraints& constr);
 
@@ -216,4 +215,3 @@ bool constructConstraints(XmlRpc::XmlRpcValue& params, moveit_msgs::Constraints&
  */
 bool resolveConstraintFrames(const robot_state::RobotState& state, moveit_msgs::Constraints& constraints);
 }
-#endif

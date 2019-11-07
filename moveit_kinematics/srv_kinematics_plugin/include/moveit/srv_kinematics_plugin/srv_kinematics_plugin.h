@@ -33,14 +33,13 @@
  *********************************************************************/
 
 /* Author: Dave Coleman, Masaki Murooka
-   Desc:   Connects MoveIt! to any inverse kinematics solver via a ROS service call
+   Desc:   Connects MoveIt to any inverse kinematics solver via a ROS service call
            Supports planning groups with multiple tip frames
            \todo: better support for mimic joints
            \todo: better support for redundant joints
 */
 
-#ifndef MOVEIT_ROS_PLANNING_SRV_KINEMATICS_PLUGIN_
-#define MOVEIT_ROS_PLANNING_SRV_KINEMATICS_PLUGIN_
+#pragma once
 
 // ROS
 #include <ros/ros.h>
@@ -55,7 +54,7 @@
 #include <moveit_msgs/KinematicSolverInfo.h>
 #include <moveit_msgs/MoveItErrorCodes.h>
 
-// MoveIt!
+// MoveIt
 #include <moveit/kinematics_base/kinematics_base.h>
 #include <moveit/robot_state/robot_state.h>
 
@@ -159,5 +158,3 @@ private:
   std::shared_ptr<ros::ServiceClient> ik_service_client_;
 };
 }
-
-#endif

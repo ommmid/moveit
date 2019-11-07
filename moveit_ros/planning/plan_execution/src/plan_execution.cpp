@@ -38,6 +38,7 @@
 #include <moveit/robot_state/conversions.h>
 #include <moveit/trajectory_processing/trajectory_tools.h>
 #include <moveit/collision_detection/collision_tools.h>
+#include <moveit/utils/message_checks.h>
 #include <boost/algorithm/string/join.hpp>
 
 #include <dynamic_reconfigure/server.h>
@@ -141,7 +142,7 @@ void plan_execution::PlanExecution::planAndExecute(ExecutableMotionPlan& plan, c
 void plan_execution::PlanExecution::planAndExecute(ExecutableMotionPlan& plan,
                                                    const moveit_msgs::PlanningScene& scene_diff, const Options& opt)
 {
-  if (planning_scene::PlanningScene::isEmpty(scene_diff))
+  if (moveit::core::isEmpty(scene_diff))
     planAndExecute(plan, opt);
   else
   {
@@ -391,8 +392,13 @@ moveit_msgs::MoveItErrorCodes plan_execution::PlanExecution::executeAndMonitor(E
   }
 
   if (!trajectory_monitor_ && planning_scene_monitor_->getStateMonitor())
-    trajectory_monitor_.reset(
-        new planning_scene_monitor::TrajectoryMonitor(planning_scene_monitor_->getStateMonitor()));
+  {
+    // Pass current value of reconfigurable parameter plan_execution/record_trajectory_state_frequency
+    double sampling_frequency = 0.0;
+    node_handle_.getParam("plan_execution/record_trajectory_state_frequency", sampling_frequency);
+    trajectory_monitor_ = std::make_shared<planning_scene_monitor::TrajectoryMonitor>(
+        planning_scene_monitor_->getStateMonitor(), sampling_frequency);
+  }
 
   // start recording trajectory states
   if (trajectory_monitor_)
@@ -511,7 +517,7 @@ void plan_execution::PlanExecution::successfulTrajectorySegmentExecution(const E
   if (index < plan->plan_components_.size() && plan->plan_components_[index].trajectory_ &&
       !plan->plan_components_[index].trajectory_->empty())
   {
-    if (!isRemainingPathValid(*plan, std::make_pair<int>(index, 0)))
+    if (!isRemainingPathValid(*plan, std::make_pair(static_cast<int>(index), 0)))
       path_became_invalid_ = true;
   }
 }
