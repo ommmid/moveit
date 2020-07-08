@@ -14,6 +14,7 @@ endif()
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(orocos_kdl REQUIRED)
+find_package(fabrik REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   moveit_core
   pluginlib
@@ -24,6 +25,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 set(THIS_PACKAGE_INCLUDE_DIRS
     kdl_kinematics_plugin/include
+    fabrik_kinematics_plugin/include
     lma_kinematics_plugin/include
     srv_kinematics_plugin/include
     cached_ik_kinematics_plugin/include
@@ -52,6 +54,7 @@ add_subdirectory(lma_kinematics_plugin)
 add_subdirectory(srv_kinematics_plugin)
 add_subdirectory(ikfast_kinematics_plugin)
 add_subdirectory(cached_ik_kinematics_plugin)
+add_subdirectory(fabrik_kinematics_plugin)
 add_subdirectory(test)
 
 install(
@@ -60,5 +63,7 @@ install(
     lma_kinematics_plugin_description.xml
     srv_kinematics_plugin_description.xml
     cached_ik_kinematics_plugin_description.xml
+    fabrik_kinematics_plugin_description.xml
+    
   DESTINATION
     ${CATKIN_PACKAGE_SHARE_DESTINATION})
