@@ -36,7 +36,8 @@
 
 #include <moveit/fabrik_kinematics_plugin/fabrik_kinematics_plugin.h>
 
-#include <tf2_kdl/tf2_kdl.h>
+#include <moveit/kinematics_base/kinematics_base.h>
+
 #include <tf2/transform_datatypes.h>
 
 // register KDLKinematics as a KinematicsBase implementation

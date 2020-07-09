@@ -60,10 +60,10 @@ add_subdirectory(test)
 install(
   FILES
     kdl_kinematics_plugin_description.xml
+    fabrik_kinematics_plugin_description.xml
     lma_kinematics_plugin_description.xml
     srv_kinematics_plugin_description.xml
     cached_ik_kinematics_plugin_description.xml
-    fabrik_kinematics_plugin_description.xml
     
   DESTINATION
     ${CATKIN_PACKAGE_SHARE_DESTINATION})

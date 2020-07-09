@@ -1,7 +1,7 @@
 <library path="lib/libmoveit_fabrik_kinematics_plugin">
   <class name="fabrik_kinematics_plugin/FabrikKinematicsPlugin" type="fabrik_kinematics_plugin::FabrikKinematicsPlugin" base_class_type="kinematics::KinematicsBase">
     <description>
-      An implementation of kinematics as a plugin based on FABRIK.
+      An implementation FABRIK solver for manipulators.
     </description>
   </class>
 </library>
