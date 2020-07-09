@@ -260,8 +260,31 @@ bool FabrikKinematicsPlugin::getPositionFK(const std::vector<std::string>& link_
                                         const std::vector<double>& joint_angles,
                                         std::vector<geometry_msgs::Pose>& poses) const
 {
-  
-  return true;
+if (!initialized_)
+  {
+    ROS_ERROR_NAMED("fabrik", "kinematics solver not initialized");
+    return false;
+  }
+
+  poses.resize(link_names.size());
+  if (joint_angles.size() != dimension_)
+  {
+    ROS_ERROR_NAMED("kdl", "Joint angles vector must have size: %d", dimension_);
+    return false;
+  }
+
+//   KDL::Frame p_out;
+//   KDL::JntArray jnt_pos_in(dimension_);
+//   jnt_pos_in.data = Eigen::Map<const Eigen::VectorXd>(joint_angles.data(), joint_angles.size());
+
+  bool valid = true;
+  for (unsigned int i = 0; i < poses.size(); i++)
+  {
+    // fill up poses here
+    // poses[i]
+  }
+
+  return valid;  
 }
 
 const std::vector<std::string>& FabrikKinematicsPlugin::getJointNames() const
