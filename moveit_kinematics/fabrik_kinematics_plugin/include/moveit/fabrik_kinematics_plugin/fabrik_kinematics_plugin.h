@@ -71,10 +71,26 @@ public:
    */
   FabrikKinematicsPlugin();
 
-  bool getPositionIK(
-      const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, std::vector<double>& solution,
-      moveit_msgs::MoveItErrorCodes& error_code,
-      const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
+  bool checkConsistency(const Eigen::VectorXd& seed_state,
+                                           const std::vector<double>& consistency_limits,
+                                           const Eigen::VectorXd& solution) const;
+
+
+  /**
+   * @brief Given a desired pose of the end-effector, compute the joint angles to reach it
+   *
+   * In contrast to the searchPositionIK methods, this one is expected to return the solution
+   * closest to the seed state. Randomly re-seeding is explicitly not allowed.
+   * @param ik_pose the desired pose of the link
+   * @param ik_seed_state an initial guess solution for the inverse kinematics
+   * @param solution the solution vector
+   * @param error_code an error code that encodes the reason for failure or success
+   * @param options container for other IK options. See definition of KinematicsQueryOptions for details.
+   * @return True if a valid solution was found, false otherwise
+   */
+  bool getPositionIK(const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, 
+                     std::vector<double>& solution, moveit_msgs::MoveItErrorCodes& error_code,
+                     const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
 
   bool searchPositionIK(
       const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, double timeout,
@@ -92,6 +108,21 @@ public:
       std::vector<double>& solution, const IKCallbackFn& solution_callback, moveit_msgs::MoveItErrorCodes& error_code,
       const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
 
+  /**
+   * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
+   * This particular method is intended for "searching" for a solution by stepping through the redundancy
+   * (or other numerical routines).
+   * @param ik_pose the desired pose of the link
+   * @param ik_seed_state an initial guess solution for the inverse kinematics
+   * @param timeout The amount of time (in seconds) available to the solver
+   * @param consistency_limits the distance that any joint in the solution can be from the corresponding joints in the
+   * current seed state
+   * @param solution the solution vector
+   * @param solution_callback A callback to validate an IK solution
+   * @param error_code an error code that encodes the reason for failure or success
+   * @param options container for other IK options. See definition of KinematicsQueryOptions for details.
+   * @return True if a valid solution was found, false otherwise
+   */
   bool searchPositionIK(
       const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, double timeout,
       const std::vector<double>& consistency_limits, std::vector<double>& solution,
