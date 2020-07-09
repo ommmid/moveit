@@ -52,35 +52,6 @@ FabrikKinematicsPlugin::FabrikKinematicsPlugin() : initialized_(false)
     
 }
 
-void FabrikKinematicsPlugin::getRandomConfiguration(Eigen::VectorXd& jnt_array) const
-{
-  state_->setToRandomPositions(joint_model_group_);
-  state_->copyJointGroupPositions(joint_model_group_, &jnt_array[0]);
-}
-
-void FabrikKinematicsPlugin::getRandomConfiguration(const Eigen::VectorXd& seed_state,
-                                                 const std::vector<double>& consistency_limits,
-                                                 Eigen::VectorXd& jnt_array) const
-{
-  joint_model_group_->getVariableRandomPositionsNearBy(state_->getRandomNumberGenerator(), &jnt_array[0],
-                                                       &seed_state[0], consistency_limits);
-}
-
-bool FabrikKinematicsPlugin::checkConsistency(const Eigen::VectorXd& seed_state,
-                                           const std::vector<double>& consistency_limits,
-                                           const Eigen::VectorXd& solution) const
-{
-  for (std::size_t i = 0; i < dimension_; ++i)
-    if (fabs(seed_state(i) - solution(i)) > consistency_limits[i])
-      return false;
-  return true;
-}
-
-void FabrikKinematicsPlugin::getJointWeights()
-{
- 
-}
-
 bool FabrikKinematicsPlugin::initialize(const moveit::core::RobotModel& robot_model, const std::string& group_name,
                                      const std::string& base_frame, const std::vector<std::string>& tip_frames,
                                      double search_discretization)
@@ -146,22 +117,6 @@ bool FabrikKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
   return false;
 }
 
-// NOLINTNEXTLINE(readability-identifier-naming)
-// int FabrikKinematicsPlugin::CartToJnt(KDL::ChainIkSolverVelMimicSVD& ik_solver, const KDL::JntArray& q_init,
-//                                    const KDL::Frame& p_in, KDL::JntArray& q_out, const unsigned int max_iter,
-//                                    const Eigen::VectorXd& joint_weights, const Twist& cartesian_weights) const
-// {
- 
-//   int result = 2;
-
-//   return result;
-// }
-
-// void FabrikKinematicsPlugin::clipToJointLimits(const KDL::JntArray& q, KDL::JntArray& q_delta,
-//                                             Eigen::ArrayXd& weighting) const
-// {
-  
-// }
 
 bool FabrikKinematicsPlugin::getPositionFK(const std::vector<std::string>& link_names,
                                         const std::vector<double>& joint_angles,

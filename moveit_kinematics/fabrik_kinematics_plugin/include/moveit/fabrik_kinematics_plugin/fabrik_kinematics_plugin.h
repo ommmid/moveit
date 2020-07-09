@@ -118,37 +118,9 @@ public:
 protected:
   typedef Eigen::Matrix<double, 6, 1> Twist;
 
-  /// Solve position IK given initial joint values
-  // NOLINTNEXTLINE(readability-identifier-naming)
-  // int CartToJnt(KDL::ChainIkSolverVelMimicSVD& ik_solver, const KDL::JntArray& q_init, const KDL::Frame& p_in,
-  //               KDL::JntArray& q_out, const unsigned int max_iter, const Eigen::VectorXd& joint_weights,
-  //               const Twist& cartesian_weights) const;
 
 private:
-  void getJointWeights();
   bool timedOut(const ros::WallTime& start_time, double duration) const;
-
-  /** @brief Check whether the solution lies within the consistency limits of the seed state
-   *  @param seed_state Seed state
-   *  @param consistency_limits
-   *  @param solution solution configuration
-   *  @return true if check succeeds
-   */
-  bool checkConsistency(const Eigen::VectorXd& seed_state, const std::vector<double>& consistency_limits,
-                        const Eigen::VectorXd& solution) const;
-
-  void getRandomConfiguration(Eigen::VectorXd& jnt_array) const;
-
-  /** @brief Get a random configuration within consistency limits close to the seed state
-   *  @param seed_state Seed state
-   *  @param consistency_limits
-   *  @param jnt_array Returned random configuration
-   */
-  void getRandomConfiguration(const Eigen::VectorXd& seed_state, const std::vector<double>& consistency_limits,
-                              Eigen::VectorXd& jnt_array) const;
-
-  /// clip q_delta such that joint limits will not be violated
-  // void clipToJointLimits(const KDL::JntArray& q, KDL::JntArray& q_delta, Eigen::ArrayXd& weighting) const;
 
   bool initialized_;  ///< Internal variable that indicates whether solver is configured and ready
 
