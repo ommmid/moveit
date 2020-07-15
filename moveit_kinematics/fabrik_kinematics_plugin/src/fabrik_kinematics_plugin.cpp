@@ -34,11 +34,16 @@
 
 /* Author: Omid Heidari */
 
-#include <moveit/fabrik_kinematics_plugin/fabrik_kinematics_plugin.h>
+#include "moveit/fabrik_kinematics_plugin/fabrik_kinematics_plugin.h"
+#include "moveit/fabrik_kinematics_plugin/fabrik_model.h"
 
 #include <moveit/kinematics_base/kinematics_base.h>
 
 #include <tf2/transform_datatypes.h>
+
+// FABRIK
+#include <fabrik/base/fabrik.h>
+#include "fabrik/util/math.h"
 
 // register KDLKinematics as a KinematicsBase implementation
 #include <class_loader/class_loader.hpp>
@@ -56,6 +61,7 @@ bool FabrikKinematicsPlugin::initialize(const moveit::core::RobotModel& robot_mo
                                      const std::string& base_frame, const std::vector<std::string>& tip_frames,
                                      double search_discretization)
 {
+  ROS_INFO("-------------------------------- 1");
   storeValues(robot_model, group_name, base_frame, tip_frames, search_discretization);
   joint_model_group_ = robot_model_->getJointModelGroup(group_name);
   if (!joint_model_group_)
@@ -71,7 +77,7 @@ bool FabrikKinematicsPlugin::initialize(const moveit::core::RobotModel& robot_mo
     ROS_ERROR_NAMED("kdl", "Group '%s' includes joints that have more than 1 DOF", group_name.c_str());
     return false;
   }
-
+ROS_INFO("-------------------------------- 2");
   dimension_ = joint_model_group_->getActiveJointModels().size() + joint_model_group_->getMimicJointModels().size();
   for (std::size_t i = 0; i < joint_model_group_->getJointModels().size(); ++i)
   {
@@ -84,7 +90,7 @@ bool FabrikKinematicsPlugin::initialize(const moveit::core::RobotModel& robot_mo
       solver_info_.limits.insert(solver_info_.limits.end(), jvec.begin(), jvec.end());
     }
   }
-
+ROS_INFO("-------------------------------- 3");
   if (!joint_model_group_->hasLinkModel(getTipFrame()))
   {
     ROS_ERROR_NAMED("kdl", "Could not find tip name in joint group '%s'", group_name.c_str());
@@ -100,25 +106,25 @@ bool FabrikKinematicsPlugin::initialize(const moveit::core::RobotModel& robot_mo
     joint_min_(i) = solver_info_.limits[i].min_position;
     joint_max_(i) = solver_info_.limits[i].max_position;
   }
-
+ROS_INFO("-------------------------------- 4");
   // Get Solver Parameters
   lookupParam("max_solver_iterations", max_solver_iterations_, 500);
   lookupParam("epsilon", epsilon_, 1e-5);
   lookupParam("orientation_vs_position", orientation_vs_position_weight_, 1.0);
-
+ROS_INFO("-------------------------------- 5");
   bool position_ik;
   lookupParam("position_only_ik", position_ik, false);
   if (position_ik)  // position_only_ik overrules orientation_vs_position
     orientation_vs_position_weight_ = 0.0;
   if (orientation_vs_position_weight_ == 0.0)
     ROS_INFO_NAMED("kdl", "Using position only ik");
-
+ROS_INFO("-------------------------------- 6");
   // Setup the joint state groups that we need
   state_.reset(new moveit::core::RobotState(robot_model_));
 
  // do a forward kinematic reset ???
 //  fk_solver_.reset(new KDL::ChainFkSolverPos_recursive(kdl_chain_));
-
+ROS_INFO("-------------------------------- 7");
   initialized_ = true;
   ROS_DEBUG_NAMED("fabrik", "Fabrik solver initialized");
   return true;
@@ -188,6 +194,7 @@ bool FabrikKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
                                            moveit_msgs::MoveItErrorCodes& error_code,
                                            const kinematics::KinematicsQueryOptions& options) const
 {
+  ROS_INFO("-------------------------------- 21");
  ros::WallTime start_time = ros::WallTime::now();
   if (!initialized_)
   {
@@ -204,6 +211,31 @@ bool FabrikKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
     return false;
   }
 
+ROS_INFO("-------------------------------- 21.5");
+
+    Eigen::Vector3d vec1(1,0,0);
+    vec1.normalize();
+    Eigen::Affine3d link1_frame(Eigen::AngleAxisd(-M_PI_2, vec1));
+    link1_frame.translation() = Eigen::Vector3d(0, 0, 0.333/2);
+ROS_INFO("-------------------------------- 21.6");
+   std::string link1_name = "link1";
+    fabrik::Link link1(link1_name,  link1_frame);
+
+
+ROS_INFO("-------------------------------- 22");
+  // ---------------------- make an instance of fabrik
+  // convert joint_model_group_ to fabrik robot model
+  FabrikModel fabrik_model(joint_model_group_);
+  // FabrikModel fabrik_model;
+  ROS_INFO("-------------------------------- 22.5");
+  fabrik::FABRIKPtr fabrik(new fabrik::FABRIK(fabrik_model.fabrik_robot_model));
+
+ROS_INFO("-------------------------------- 23");
+  solution.resize(dimension_);
+  ROS_DEBUG_STREAM_NAMED("kdl", "searchPositionIK: Position request pose is "
+                                    << ik_pose.position.x << " " << ik_pose.position.y << " " << ik_pose.position.z
+                                    << " " << ik_pose.orientation.x << " " << ik_pose.orientation.y << " "
+                                    << ik_pose.orientation.z << " " << ik_pose.orientation.w);
 
   unsigned int attempt = 0;
   do
@@ -218,21 +250,37 @@ bool FabrikKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
     //   ROS_DEBUG_STREAM_NAMED("kdl", "New random configuration (" << attempt << "): " << jnt_pos_in);
     }
 
-    // ===>>> here the IK should be solved and the solution goes into jnt_pose_out
+    // ===>>> here the IK should solve and the solution goes into jnt_pose_out
     //int ik_valid = 
         // CartToJnt(ik_solver_vel, jnt_pos_in, pose_desired, jnt_pos_out, max_solver_iterations_,
         //           Eigen::Map<const Eigen::VectorXd>(joint_weights_.data(), joint_weights_.size()), cartesian_weights);
-    
-    // 0 means it IK solver passed
-    int ik_valid = 0;
 
-    if (ik_valid == 0 || options.return_approximate_solution)  // found acceptable solution
+     
+    Eigen::Quaternion<double> ik_pose_quaternion(ik_pose.orientation.w, ik_pose.orientation.x, ik_pose.orientation.y,ik_pose.orientation.z);
+    Eigen::Affine3d target(ik_pose_quaternion); 
+    Eigen::Vector3d ik_pose_translation(ik_pose.position.x, ik_pose.position.y, ik_pose.position.z);
+    target.translation() = ik_pose_translation;
+    fabrik->setInverseKinematicsInput(target,
+                                      epsilon_,
+                                      max_solver_iterations_,
+                                      fabrik::CalculatorType::POSITION);
+
+    fabrik::IKOutput output;
+    bool solved = fabrik->solveIK(output);
+
+    // 0 means it IK solver passed
+    // int ik_valid = 0;
+
+    if (solved || options.return_approximate_solution)  // found acceptable solution
     {
     //   if (!consistency_limits_mimic.empty() &&
     //       !checkConsistency(jnt_seed_state.data, consistency_limits_mimic, jnt_pos_out.data))
     //     continue;
 
-      Eigen::Map<Eigen::VectorXd>(solution.data(), solution.size()); // =  the soltuion joint values: jnt_pos_out.data;
+      // map joint values from fabrik solution which is a double vector to Eigen::VectorXd
+      Eigen::VectorXd fabrik_joint_values = Eigen::VectorXd::Map(output.solution_joints_values.data(), output.solution_joints_values.size());
+      // map fabrik_joint_values to solution
+      Eigen::Map<Eigen::VectorXd>(solution.data(), solution.size()) = fabrik_joint_values; 
       if (!solution_callback.empty())
       {
         solution_callback(ik_pose, solution, error_code);
@@ -248,6 +296,8 @@ bool FabrikKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
     }
   } while (!timedOut(start_time, timeout));
   
+  ROS_INFO("-------------------------------- 24");
+
   ROS_DEBUG_STREAM_NAMED("kdl", "IK timed out after " << (ros::WallTime::now() - start_time).toSec() << " > " << timeout
                                                       << "s and " << attempt << " attempts");
   error_code.val = error_code.TIMED_OUT;
@@ -277,11 +327,25 @@ if (!initialized_)
 //   KDL::JntArray jnt_pos_in(dimension_);
 //   jnt_pos_in.data = Eigen::Map<const Eigen::VectorXd>(joint_angles.data(), joint_angles.size());
 
+  FabrikModel fabrik_model(joint_model_group_);
+  fabrik::FABRIKPtr fabrik(new fabrik::FABRIK(fabrik_model.fabrik_robot_model));
+
+  Eigen::Affine3d target = Eigen::Affine3d::Identity();;
+  fabrik->solveFK(joint_angles, target);
+
   bool valid = true;
   for (unsigned int i = 0; i < poses.size(); i++)
   {
     // fill up poses here
-    // poses[i]
+    Eigen::Quaternion<double> target_quaternion(target.rotation());
+    poses[i].orientation.w = static_cast<float>(target_quaternion.w());
+    poses[i].orientation.x = static_cast<float>(target_quaternion.x());
+    poses[i].orientation.y = static_cast<float>(target_quaternion.y());
+    poses[i].orientation.z = static_cast<float>(target_quaternion.z());
+
+    poses[i].position.x = static_cast<float>(target.translation().x());
+    poses[i].position.y = static_cast<float>(target.translation().y());
+    poses[i].position.z = static_cast<float>(target.translation().z());
   }
 
   return valid;  

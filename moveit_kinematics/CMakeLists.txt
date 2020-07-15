@@ -14,7 +14,7 @@ endif()
 find_package(Boost REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(orocos_kdl REQUIRED)
-find_package(fabrik REQUIRED)
+find_package(fabrik CONFIG REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   moveit_core
   pluginlib

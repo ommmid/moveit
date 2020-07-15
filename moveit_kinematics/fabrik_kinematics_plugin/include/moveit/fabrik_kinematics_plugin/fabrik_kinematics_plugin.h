@@ -32,7 +32,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-/* Author: Sachin Chitta, David Lu!!, Ugo Cupcic */
+/* Author: Omid Heidari */
 
 #pragma once
 
