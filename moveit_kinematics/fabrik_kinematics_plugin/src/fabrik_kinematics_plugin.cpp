@@ -211,26 +211,12 @@ bool FabrikKinematicsPlugin::searchPositionIK(const geometry_msgs::Pose& ik_pose
     return false;
   }
 
-ROS_INFO("-------------------------------- 21.5");
-
-    Eigen::Vector3d vec1(1,0,0);
-    vec1.normalize();
-    Eigen::Affine3d link1_frame(Eigen::AngleAxisd(-M_PI_2, vec1));
-    link1_frame.translation() = Eigen::Vector3d(0, 0, 0.333/2);
-ROS_INFO("-------------------------------- 21.6");
-   std::string link1_name = "link1";
-    fabrik::Link link1(link1_name,  link1_frame);
-
-
-ROS_INFO("-------------------------------- 22");
   // ---------------------- make an instance of fabrik
   // convert joint_model_group_ to fabrik robot model
   FabrikModel fabrik_model(joint_model_group_);
   // FabrikModel fabrik_model;
-  ROS_INFO("-------------------------------- 22.5");
   fabrik::FABRIKPtr fabrik(new fabrik::FABRIK(fabrik_model.fabrik_robot_model));
 
-ROS_INFO("-------------------------------- 23");
   solution.resize(dimension_);
   ROS_DEBUG_STREAM_NAMED("kdl", "searchPositionIK: Position request pose is "
                                     << ik_pose.position.x << " " << ik_pose.position.y << " " << ik_pose.position.z
