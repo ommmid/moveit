@@ -557,7 +557,7 @@ void CollisionTermInfo::addObjectiveTerms(TrajOptProblem& prob)
     if (continuous)
     {
       for (int i = first_step; i <= last_step - gap; ++i)
-      {
+      { // ??????????
         prob.addCost(sco::CostPtr(new CollisionCost(prob.GetKin(),
                                                     prob.GetEnv(),
                                                     info[static_cast<size_t>(i - first_step)],

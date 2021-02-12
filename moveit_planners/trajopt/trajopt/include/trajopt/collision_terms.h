@@ -1,5 +1,4 @@
 #pragma once
-
 #include <trajopt/cache.hxx>
 #include <trajopt/common.hpp>
 #include <trajopt_sco/modeling.hpp>
@@ -25,21 +24,28 @@ struct CollisionEvaluator
   virtual ~CollisionEvaluator() = default;
   virtual void CalcDistExpressions(const DblVec& x, sco::AffExprVector& exprs) = 0;
   virtual void CalcDists(const DblVec& x, DblVec& exprs) = 0;
-  virtual void CalcCollisions(const DblVec& x, std::vector<collision_detection::Contact>& dist_results) = 0;
-  // virtual void Plot(const tesseract::BasicPlottingPtr plotter, const DblVec& x) = 0;
+  virtual void CalcCollisions(const DblVec& x, tesseract::ContactResultVector& dist_results) = 0;
+  void GetCollisionsCached(const DblVec& x, tesseract::ContactResultVector&);
+  //virtual void Plot(const tesseract::BasicPlottingPtr plotter, const DblVec& x) = 0;
   virtual sco::VarVector GetVars() = 0;
 
-  // I think we do not use cache in MoveIt, so we can delete this???
-  // I am going to use CalcCollisions straight without using this Cached function
-  // void GetCollisionsCached(const DblVec& x, std::vector<collision_detection::Contact>& dist_results);
-  
   const SafetyMarginDataConstPtr getSafetyMarginData() const { return safety_margin_data_; }
-  // Cache<size_t, tesseract::ContactResultVector, 10> m_cache;
+  
+  Cache<size_t, tesseract::ContactResultVector, 10> m_cache;
+  // this calss is not dependent to any  tesseract stuff, I just need to figure out ContactResulVector that is passed to it
+  // I do not understand what it is doing exactly though
+
+  // what is ContactResultVector?
+  // is an aligned vector which works with memory. Basically, it is a vector containing ContactResult
+  // now what is ContactResult? it has all the informatin related to contact between two bodies
+
+  // so I need to find the similar type to ContactResult in MoveIt
 
 protected:
-  
-  planning_scene::PlanningSceneConstPtr planning_scene_;
+  // tesseract::BasicEnvConstPtr env_;
+  // tesseract::BasicKinConstPtr manip_;
 
+  planning_scene::PlanningSceneConstPtr planning_scene_;
   SafetyMarginDataConstPtr safety_margin_data_;
 
 private:
@@ -70,6 +76,7 @@ public:
   sco::VarVector GetVars() override { return m_vars; }
 private:
   sco::VarVector m_vars;
+  //tesseract::DiscreteContactManagerBasePtr contact_manager_;
 };
 
 struct CastCollisionEvaluator : public CollisionEvaluator
