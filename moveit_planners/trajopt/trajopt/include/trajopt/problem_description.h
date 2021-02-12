@@ -383,9 +383,7 @@ struct JointVelTermInfo : public TermInfo
   int last_step = -1;
 
   /** @brief Initialize term with it's supported types */
-  JointVelTermInfo() : TermInfo(TT_COST | TT_CNT | TT_USE_TIME)
-  {
-  }
+  JointVelTermInfo() : TermInfo(TT_COST | TT_CNT | TT_USE_TIME){}
 
   /** @brief Converts term info into cost/constraint and adds it to trajopt problem */
   void addObjectiveTerms(TrajOptProblem& prob) override;
@@ -395,6 +393,48 @@ struct JointVelTermInfo : public TermInfo
     TermInfoPtr out(new JointVelTermInfo());
     return out;
   }
+};
+
+/**
+\brief %Collision penalty
+
+Distrete-time penalty:
+\f{align*}{
+  cost = \sum_{t=0}^{T-1} \sum_{A, B} | distpen_t - sd(A,B) |^+
+\f}
+
+Continuous-time penalty: same, except you consider swept-out shaps of robot
+links. Currently self-collisions are not included.
+
+*/
+struct CollisionTermInfo : public TermInfo
+{
+  /** @brief first_step and last_step are inclusive */
+  int first_step, last_step;
+
+  /** @brief Indicate if continuous collision checking should be used. */
+  bool continuous;
+
+  /** @brief for continuous-time penalty, use swept-shape between timesteps t and t+gap */
+  /** @brief (gap=1 by default) */
+  int gap;
+
+  /** @brief Contains distance penalization data: Safety Margin, Coeff used during */
+  /** @brief optimization, etc. */
+  std::vector<SafetyMarginDataPtr> info;
+
+  /** @brief Used to add term to pci from json */
+  //void fromJson(ProblemConstructionInfo& pci, const Json::Value& v) override;
+  /** @brief Converts term info into cost/constraint and adds it to trajopt problem */
+  void addObjectiveTerms(TrajOptProblem& prob) override;
+  
+  static TermInfoPtr create()
+  {
+    TermInfoPtr out(new CollisionTermInfo());
+    return out;
+  }
+
+  CollisionTermInfo() : TermInfo(TT_COST | TT_CNT) {}
 };
 
 void generateInitialTrajectory(const ProblemInfo& pci, const std::vector<double>& current_joint_values,
