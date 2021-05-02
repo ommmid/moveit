@@ -1,13 +1,13 @@
 <package format="2">
   <name>moveit_ros_move_group</name>
-  <version>1.0.1</version>
+  <version>1.1.1</version>
   <description>The move_group node for MoveIt</description>
   <author email="isucan@google.com">Ioan Sucan</author>
   <author email="robot.moveit@gmail.com">Sachin Chitta</author>
 
   <maintainer email="mferguson@fetchrobotics.com">Michael Ferguson</maintainer>
   <maintainer email="me@v4hn.de">Michael Görner</maintainer>
-  <maintainer email="moveit_releasers@googlegroups.com">MoveIt! Release Team</maintainer>
+  <maintainer email="moveit_releasers@googlegroups.com">MoveIt Release Team</maintainer>
 
   <license>BSD</license>
 
@@ -30,7 +30,7 @@
   <exec_depend>moveit_kinematics</exec_depend>
 
   <test_depend>rostest</test_depend>
-  <test_depend>moveit_resources</test_depend>
+  <test_depend>moveit_resources_fanuc_moveit_config</test_depend>
 
   <export>
     <moveit_ros_move_group plugin="${prefix}/default_capabilities_plugin_description.xml"/>

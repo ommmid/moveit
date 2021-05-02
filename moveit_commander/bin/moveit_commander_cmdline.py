@@ -4,7 +4,10 @@ from __future__ import print_function
 
 import roslib
 import rospy
-import readline
+try:
+    import readline
+except ImportError:
+    import pyreadline as readline # for Windows
 import sys
 import os
 import signal
@@ -42,7 +45,7 @@ class SimpleCompleter(object):
         prefix = ""
         if len(cmds) > 0:
             prefix = cmds[0]
-            if not self.options.has_key(prefix):
+            if not prefix in self.options:
                 prefix = ""
 
         if state == 0:
@@ -151,7 +154,7 @@ if __name__=='__main__':
     rospy.init_node('move_group_interface_cmdline', anonymous=True, disable_signals=True)
 
     parser = argparse.ArgumentParser(usage = """%(prog)s [options] [<group_name>]""",
-                                     description = "Command Line Interface to MoveIt!")
+                                     description = "Command Line Interface to MoveIt")
     parser.add_argument("-i", "--interactive", action="store_true", dest="interactive", default=True,
                         help="Run the command processing script in interactive mode (default)")
     parser.add_argument("-s", "--service", action="store_true", dest="service", default=False,

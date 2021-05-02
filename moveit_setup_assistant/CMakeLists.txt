@@ -1,7 +1,12 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.1.3)
 project(moveit_setup_assistant)
 
-add_compile_options(-std=c++14)
+if(NOT "${CMAKE_CXX_STANDARD}")
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # suppress warning in Ogre
   add_compile_options(-Wno-deprecated-register)
@@ -25,7 +30,9 @@ find_package(catkin REQUIRED COMPONENTS
   urdf
   srdfdom
 )
-include_directories(include ${Boost_INCLUDE_DIRS} ${catkin_INCLUDE_DIRS})
+find_package(ompl REQUIRED)
+include_directories(SYSTEM ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS} ${OMPL_INCLUDE_DIRS})
+include_directories(include)
 
 # Qt Stuff
 if(rviz_QT_VERSION VERSION_LESS "5")
@@ -42,7 +49,7 @@ add_definitions(-DQT_NO_KEYWORDS)
 # Support new yaml-cpp API.
 find_package(PkgConfig)
 pkg_check_modules(YAMLCPP REQUIRED yaml-cpp>=0.5)
-include_directories(${YAMLCPP_INCLUDE_DIRS})
+include_directories(SYSTEM ${YAMLCPP_INCLUDE_DIRS})
 
 catkin_package(
   INCLUDE_DIRS
@@ -52,6 +59,7 @@ catkin_package(
   CATKIN_DEPENDS
     moveit_ros_planning
     moveit_ros_visualization
+    roscpp
 )
 
 # Header files that need Qt Moc pre-processing for use with Qt signals, etc:
@@ -139,9 +147,14 @@ set_target_properties(${PROJECT_NAME}_updater
                       PROPERTIES OUTPUT_NAME collisions_updater
                       PREFIX "")
 
-install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_widgets ${PROJECT_NAME}_tools ${PROJECT_NAME}_updater
-  LIBRARY DESTINATION ${CATKIN_GLOBAL_LIB_DESTINATION}
+install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_updater
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+install(TARGETS ${PROJECT_NAME}_widgets ${PROJECT_NAME}_tools
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+
 install(DIRECTORY include/ DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION})
 
 install(DIRECTORY launch DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
@@ -150,9 +163,6 @@ install(DIRECTORY templates DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
 
 # Unit tests
 if(CATKIN_ENABLE_TESTING)
-  find_package(moveit_resources REQUIRED)
-  include_directories(${moveit_resources_INCLUDE_DIRS})
   catkin_add_gtest(test_reading_writing_config test/moveit_config_data_test.cpp)
-  target_link_libraries(test_reading_writing_config
-    ${PROJECT_NAME}_tools ${catkin_LIBRARIES} ${Boost_LIBRARIES} ${MOVEIT_LIB_NAME})
+  target_link_libraries(test_reading_writing_config ${PROJECT_NAME}_tools)
 endif()

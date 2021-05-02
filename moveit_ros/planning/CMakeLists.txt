@@ -1,7 +1,11 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.1.3)
 project(moveit_ros_planning)
 
-add_compile_options(-std=c++14)
+if(NOT "${CMAKE_CXX_STANDARD}")
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -61,23 +65,24 @@ catkin_package(
   INCLUDE_DIRS
     ${THIS_PACKAGE_INCLUDE_DIRS}
   CATKIN_DEPENDS
-    pluginlib
+    actionlib
+    dynamic_reconfigure
     moveit_core
     moveit_ros_occupancy_map_monitor
     moveit_msgs
+    pluginlib
+    roscpp
     tf2_msgs
     tf2_geometry_msgs
   DEPENDS
     EIGEN3
 )
 
-include_directories(${THIS_PACKAGE_INCLUDE_DIRS}
+include_directories(${THIS_PACKAGE_INCLUDE_DIRS})
+include_directories(SYSTEM
                     ${catkin_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIRS}
-)
-include_directories(SYSTEM
-                    ${EIGEN3_INCLUDE_DIRS}
-)
+                    ${EIGEN3_INCLUDE_DIRS})
 
 add_subdirectory(rdf_loader)
 add_subdirectory(collision_plugin_loader)

@@ -34,30 +34,24 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_ROBOT_POSES_WIDGET_
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_ROBOT_POSES_WIDGET_
+#pragma once
 
 // Qt
-#include <QWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QScrollArea>
-#include <QGroupBox>
-#include <QLabel>
-#include <QPushButton>
-#include <QTableWidget>
-#include <QStackedLayout>
-#include <QString>
-#include <QComboBox>
+class QComboBox;
+class QLabel;
+class QLineEdit;
+class QPushButton;
+class QScrollArea;
+class QSlider;
+class QStackedWidget;
+class QTableWidget;
+class QVBoxLayout;
 
 // SA
 #ifndef Q_MOC_RUN
 #include <moveit/setup_assistant/tools/moveit_config_data.h>
-#include <moveit/planning_scene/planning_scene.h>  // for collision stuff
-#include <ros/ros.h>
 #endif
 
-#include "header_widget.h"
 #include "setup_screen_widget.h"  // a base class for screens in the setup assistant
 
 namespace moveit_setup_assistant
@@ -84,7 +78,7 @@ public:
   QPushButton* btn_delete_;
   QPushButton* btn_save_;
   QPushButton* btn_cancel_;
-  QStackedLayout* stacked_layout_;
+  QStackedWidget* stacked_widget_;
   QScrollArea* scroll_area_;
   QVBoxLayout* column2_;
   QLineEdit* pose_name_field_;
@@ -111,7 +105,7 @@ private Q_SLOTS:
   void editDoubleClicked(int row, int column);
 
   /// Preview whatever element is selected
-  void previewClicked(int row, int column);
+  void previewClicked(int row, int column, int previous_row, int previous_column);
 
   /// Delete currently editing ite
   void deleteSelected();
@@ -152,12 +146,6 @@ private:
 
   /// Pointer to currently edited group state
   srdf::Model::GroupState* current_edit_pose_;
-
-  /// All the joint slider values that have thus far been seen. May contain more than just the current joints' values
-  std::map<std::string, double> joint_state_map_;
-
-  /// The joints currently in the selected planning group
-  std::vector<const robot_model::JointModel*> joint_models_;
 
   /// Remember the publisher for quick publishing later
   ros::Publisher pub_robot_state_;
@@ -238,7 +226,7 @@ public:
    * @param parent - parent QWidget
    * @param joint_model_ - a ptr reference to the joint this widget represents
    */
-  SliderWidget(QWidget* parent, const robot_model::JointModel* joint_model, double init_value);
+  SliderWidget(QWidget* parent, const moveit::core::JointModel* joint_model, double init_value);
 
   /**
    * Deconstructor
@@ -280,7 +268,7 @@ private:
   // ******************************************************************************************
 
   // Ptr to the joint's data
-  const robot_model::JointModel* joint_model_;
+  const moveit::core::JointModel* joint_model_;
 
   // Max & min position
   double max_position_;
@@ -291,9 +279,7 @@ private:
   // ******************************************************************************************
 };
 
-}  // namespace
+}  // namespace moveit_setup_assistant
 
 // Declare std::string as metatype so we can use it in a signal
 Q_DECLARE_METATYPE(std::string)
-
-#endif

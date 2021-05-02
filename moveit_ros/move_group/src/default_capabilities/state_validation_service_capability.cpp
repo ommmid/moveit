@@ -36,7 +36,7 @@
 
 #include "state_validation_service_capability.h"
 #include <moveit/robot_state/conversions.h>
-#include <moveit/kinematic_constraints/utils.h>
+#include <moveit/utils/message_checks.h>
 #include <moveit/collision_detection/collision_tools.h>
 #include <moveit/move_group/capability_names.h>
 
@@ -56,8 +56,8 @@ bool MoveGroupStateValidationService::computeService(moveit_msgs::GetStateValidi
                                                      moveit_msgs::GetStateValidity::Response& res)
 {
   planning_scene_monitor::LockedPlanningSceneRO ls(context_->planning_scene_monitor_);
-  robot_state::RobotState rs = ls->getCurrentState();
-  robot_state::robotStateMsgToRobotState(req.robot_state, rs);
+  moveit::core::RobotState rs = ls->getCurrentState();
+  moveit::core::robotStateMsgToRobotState(req.robot_state, rs);
 
   res.valid = true;
 
@@ -66,8 +66,8 @@ bool MoveGroupStateValidationService::computeService(moveit_msgs::GetStateValidi
   creq.group_name = req.group_name;
   creq.cost = true;
   creq.contacts = true;
-  creq.max_contacts = ls->getWorld()->size();
-  creq.max_cost_sources = creq.max_contacts + ls->getRobotModel()->getLinkModelsWithCollisionGeometry().size();
+  creq.max_contacts = ls->getWorld()->size() + ls->getRobotModel()->getLinkModelsWithCollisionGeometry().size();
+  creq.max_cost_sources = creq.max_contacts;
   creq.max_contacts *= creq.max_contacts;
   collision_detection::CollisionResult cres;
 
@@ -100,7 +100,7 @@ bool MoveGroupStateValidationService::computeService(moveit_msgs::GetStateValidi
   }
 
   // evaluate constraints
-  if (!kinematic_constraints::isEmpty(req.constraints))
+  if (!moveit::core::isEmpty(req.constraints))
   {
     kinematic_constraints::KinematicConstraintSet kset(ls->getRobotModel());
     kset.add(req.constraints, ls->getTransforms());

@@ -35,12 +35,15 @@
 
 // SA
 #include "simulation_widget.h"
+#include "header_widget.h"
 
 // Qt
-#include <QVBoxLayout>
+#include <QColor>
+#include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
-#include <QColor>
+#include <QTextEdit>
+#include <QVBoxLayout>
 
 #include <moveit/robot_state/conversions.h>
 #include <moveit_msgs/DisplayRobotState.h>
@@ -61,11 +64,11 @@ SimulationWidget::SimulationWidget(QWidget* parent, const MoveItConfigDataPtr& c
 
   // Top Header Area ------------------------------------------------
 
-  HeaderWidget* header =
-      new HeaderWidget("Simulate With Gazebo", "The following tool will auto-generate the URDF changes needed "
-                                               "for Gazebo compatibility with ROSControl and MoveIt!. The "
-                                               "needed changes are shown in green.",
-                       this);
+  HeaderWidget* header = new HeaderWidget("Simulate With Gazebo",
+                                          "The following tool will auto-generate the URDF changes needed "
+                                          "for Gazebo compatibility with ROSControl and MoveIt. The "
+                                          "needed changes are shown in green.",
+                                          this);
   layout->addWidget(header);
 
   // Spacing
@@ -218,7 +221,7 @@ void SimulationWidget::generateURDFClick()
 // ******************************************************************************************
 // Called the copy to clipboard button is clicked
 // ******************************************************************************************
-void SimulationWidget::copyURDF(const QString& link)
+void SimulationWidget::copyURDF(const QString& /*link*/)
 {
   simulation_text_->selectAll();
   simulation_text_->copy();

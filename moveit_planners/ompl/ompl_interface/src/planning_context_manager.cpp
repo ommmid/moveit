@@ -37,10 +37,9 @@
 #include <moveit/ompl_interface/planning_context_manager.h>
 #include <moveit/robot_state/conversions.h>
 #include <moveit/profiler/profiler.h>
-#include <algorithm>
-#include <set>
 #include <utility>
 
+#include <ompl/geometric/planners/AnytimePathShortening.h>
 #include <ompl/geometric/planners/rrt/RRT.h>
 #include <ompl/geometric/planners/rrt/pRRT.h>
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
@@ -76,6 +75,8 @@ using namespace std::placeholders;
 
 namespace ompl_interface
 {
+constexpr char LOGNAME[] = "planning_context_manager";
+
 struct PlanningContextManager::CachedContexts
 {
   std::map<std::pair<std::string, std::string>, std::vector<ModelBasedPlanningContextPtr> > contexts_;
@@ -84,7 +85,145 @@ struct PlanningContextManager::CachedContexts
 
 }  // namespace ompl_interface
 
-ompl_interface::PlanningContextManager::PlanningContextManager(robot_model::RobotModelConstPtr robot_model,
+ompl_interface::MultiQueryPlannerAllocator::~MultiQueryPlannerAllocator()
+{
+  // Store all planner data
+  for (const auto& entry : planner_data_storage_paths_)
+  {
+    ROS_INFO("Storing planner data");
+    ob::PlannerData data(planners_[entry.first]->getSpaceInformation());
+    planners_[entry.first]->getPlannerData(data);
+    storage_.store(data, entry.second.c_str());
+  }
+}
+
+template <typename T>
+ompl::base::PlannerPtr ompl_interface::MultiQueryPlannerAllocator::allocatePlanner(
+    const ob::SpaceInformationPtr& si, const std::string& new_name, const ModelBasedPlanningContextSpecification& spec)
+{
+  // Store planner instance if multi-query planning is enabled
+  auto cfg = spec.config_;
+  auto it = cfg.find("multi_query_planning_enabled");
+  bool multi_query_planning_enabled = false;
+  if (it != cfg.end())
+  {
+    multi_query_planning_enabled = boost::lexical_cast<bool>(it->second);
+    cfg.erase(it);
+  }
+  if (multi_query_planning_enabled)
+  {
+    // If we already have an instance, use that one
+    auto planner_map_it = planners_.find(new_name);
+    if (planner_map_it != planners_.end())
+      return planner_map_it->second;
+
+    // Certain multi-query planners allow loading and storing the generated planner data. This feature can be
+    // selectively enabled for loading and storing using the bool parameters 'load_planner_data' and
+    // 'store_planner_data'. The storage file path is set using the parameter 'planner_data_path'.
+    // File read and write access are handled by the PlannerDataStorage class. If the file path is invalid
+    // an error message is printed and the planner is constructed/destructed with default values.
+    it = cfg.find("load_planner_data");
+    bool load_planner_data = false;
+    if (it != cfg.end())
+    {
+      load_planner_data = boost::lexical_cast<bool>(it->second);
+      cfg.erase(it);
+    }
+    it = cfg.find("store_planner_data");
+    bool store_planner_data = false;
+    if (it != cfg.end())
+    {
+      store_planner_data = boost::lexical_cast<bool>(it->second);
+      cfg.erase(it);
+    }
+    it = cfg.find("planner_data_path");
+    std::string planner_data_path;
+    if (it != cfg.end())
+    {
+      planner_data_path = it->second;
+      cfg.erase(it);
+    }
+    // Store planner instance for multi-query use
+    planners_[new_name] =
+        allocatePlannerImpl<T>(si, new_name, spec, load_planner_data, store_planner_data, planner_data_path);
+    return planners_[new_name];
+  }
+  else
+  {
+    // Return single-shot planner instance
+    return allocatePlannerImpl<T>(si, new_name, spec);
+  }
+}
+
+template <typename T>
+ompl::base::PlannerPtr ompl_interface::MultiQueryPlannerAllocator::allocatePlannerImpl(
+    const ob::SpaceInformationPtr& si, const std::string& new_name, const ModelBasedPlanningContextSpecification& spec,
+    bool load_planner_data, bool store_planner_data, const std::string& file_path)
+{
+  ob::PlannerPtr planner;
+  // Try to initialize planner with loaded planner data
+  if (load_planner_data)
+  {
+    ROS_INFO("Loading planner data");
+    ob::PlannerData data(si);
+    storage_.load(file_path.c_str(), data);
+    planner.reset(allocatePersistentPlanner<T>(data));
+    if (!planner)
+      ROS_ERROR_NAMED(LOGNAME,
+                      "Creating a '%s' planner from persistent data is not supported. Going to create a new instance.",
+                      new_name.c_str());
+  }
+  if (!planner)
+    planner.reset(new T(si));
+  if (!new_name.empty())
+    planner->setName(new_name);
+  planner->params().setParams(spec.config_, true);
+  //  Remember which planner instances to store when the destructor is called
+  if (store_planner_data)
+    planner_data_storage_paths_[new_name] = file_path;
+  return planner;
+}
+
+// default implementation
+template <typename T>
+inline ompl::base::Planner*
+ompl_interface::MultiQueryPlannerAllocator::allocatePersistentPlanner(const ob::PlannerData& /*data*/)
+{
+  return nullptr;
+};
+// TODO: remove when ROS Melodic and older are no longer supported
+// namespace is scoped instead of global because of GCC bug 56480
+#if OMPL_VERSION_VALUE >= 1005000
+namespace ompl_interface
+{
+template <>
+inline ompl::base::Planner*
+MultiQueryPlannerAllocator::allocatePersistentPlanner<ompl::geometric::PRM>(const ob::PlannerData& data)
+{
+  return new og::PRM(data);
+};
+template <>
+inline ompl::base::Planner*
+MultiQueryPlannerAllocator::allocatePersistentPlanner<ompl::geometric::PRMstar>(const ob::PlannerData& data)
+{
+  return new og::PRMstar(data);
+};
+template <>
+inline ompl::base::Planner*
+MultiQueryPlannerAllocator::allocatePersistentPlanner<ompl::geometric::LazyPRM>(const ob::PlannerData& data)
+{
+  return new og::LazyPRM(data);
+};
+template <>
+inline ompl::base::Planner*
+MultiQueryPlannerAllocator::allocatePersistentPlanner<ompl::geometric::LazyPRMstar>(const ob::PlannerData& data)
+{
+  return new og::LazyPRMstar(data);
+};
+}  // namespace ompl_interface
+#endif
+
+ompl_interface::PlanningContextManager::PlanningContextManager(moveit::core::RobotModelConstPtr robot_model,
                                                                constraint_samplers::ConstraintSamplerManagerPtr csm)
   : robot_model_(std::move(robot_model))
   , constraint_sampler_manager_(std::move(csm))
@@ -102,23 +241,6 @@ ompl_interface::PlanningContextManager::PlanningContextManager(robot_model::Robo
 
 ompl_interface::PlanningContextManager::~PlanningContextManager() = default;
 
-namespace
-{
-using namespace ompl_interface;
-
-template <typename T>
-static ompl::base::PlannerPtr allocatePlanner(const ob::SpaceInformationPtr& si, const std::string& new_name,
-                                              const ModelBasedPlanningContextSpecification& spec)
-{
-  ompl::base::PlannerPtr planner(new T(si));
-  if (!new_name.empty())
-    planner->setName(new_name);
-  planner->params().setParams(spec.config_, true);
-  planner->setup();
-  return planner;
-}
-}  // namespace
-
 ompl_interface::ConfiguredPlannerAllocator
 ompl_interface::PlanningContextManager::plannerSelector(const std::string& planner) const
 {
@@ -127,86 +249,47 @@ ompl_interface::PlanningContextManager::plannerSelector(const std::string& plann
     return it->second;
   else
   {
-    ROS_ERROR_NAMED("planning_context_manager", "Unknown planner: '%s'", planner.c_str());
+    ROS_ERROR_NAMED(LOGNAME, "Unknown planner: '%s'", planner.c_str());
     return ConfiguredPlannerAllocator();
   }
 }
 
+template <typename T>
+void ompl_interface::PlanningContextManager::registerPlannerAllocatorHelper(const std::string& planner_id)
+{
+  registerPlannerAllocator(planner_id, [&](const ob::SpaceInformationPtr& si, const std::string& new_name,
+                                           const ModelBasedPlanningContextSpecification& spec) {
+    return planner_allocator_.allocatePlanner<T>(si, new_name, spec);
+  });
+}
+
 void ompl_interface::PlanningContextManager::registerDefaultPlanners()
 {
-  registerPlannerAllocator(  //
-      "geometric::RRT",      //
-      std::bind(&allocatePlanner<og::RRT>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(     //
-      "geometric::RRTConnect",  //
-      std::bind(&allocatePlanner<og::RRTConnect>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::LazyRRT",  //
-      std::bind(&allocatePlanner<og::LazyRRT>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::TRRT",     //
-      std::bind(&allocatePlanner<og::TRRT>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::EST",      //
-      std::bind(&allocatePlanner<og::EST>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::SBL",      //
-      std::bind(&allocatePlanner<og::SBL>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::KPIECE",   //
-      std::bind(&allocatePlanner<og::KPIECE1>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::BKPIECE",  //
-      std::bind(&allocatePlanner<og::BKPIECE1>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(   //
-      "geometric::LBKPIECE",  //
-      std::bind(&allocatePlanner<og::LBKPIECE1>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::RRTstar",  //
-      std::bind(&allocatePlanner<og::RRTstar>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::PRM",      //
-      std::bind(&allocatePlanner<og::PRM>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::PRMstar",  //
-      std::bind(&allocatePlanner<og::PRMstar>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::FMT",      //
-      std::bind(&allocatePlanner<og::FMT>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::BFMT",     //
-      std::bind(&allocatePlanner<og::BFMT>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::PDST",     //
-      std::bind(&allocatePlanner<og::PDST>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::STRIDE",   //
-      std::bind(&allocatePlanner<og::STRIDE>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::BiTRRT",   //
-      std::bind(&allocatePlanner<og::BiTRRT>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::LBTRRT",   //
-      std::bind(&allocatePlanner<og::LBTRRT>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::BiEST",    //
-      std::bind(&allocatePlanner<og::BiEST>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::ProjEST",  //
-      std::bind(&allocatePlanner<og::ProjEST>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::LazyPRM",  //
-      std::bind(&allocatePlanner<og::LazyPRM>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(      //
-      "geometric::LazyPRMstar",  //
-      std::bind(&allocatePlanner<og::LazyPRMstar>, std::placeholders::_1, std::placeholders::_2,
-                std::placeholders::_3));
-  registerPlannerAllocator(  //
-      "geometric::SPARS",    //
-      std::bind(&allocatePlanner<og::SPARS>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
-  registerPlannerAllocator(   //
-      "geometric::SPARStwo",  //
-      std::bind(&allocatePlanner<og::SPARStwo>, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  registerPlannerAllocatorHelper<og::AnytimePathShortening>("geometric::AnytimePathShortening");
+  registerPlannerAllocatorHelper<og::BFMT>("geometric::BFMT");
+  registerPlannerAllocatorHelper<og::BiEST>("geometric::BiEST");
+  registerPlannerAllocatorHelper<og::BiTRRT>("geometric::BiTRRT");
+  registerPlannerAllocatorHelper<og::BKPIECE1>("geometric::BKPIECE");
+  registerPlannerAllocatorHelper<og::EST>("geometric::EST");
+  registerPlannerAllocatorHelper<og::FMT>("geometric::FMT");
+  registerPlannerAllocatorHelper<og::KPIECE1>("geometric::KPIECE");
+  registerPlannerAllocatorHelper<og::LazyPRM>("geometric::LazyPRM");
+  registerPlannerAllocatorHelper<og::LazyPRMstar>("geometric::LazyPRMstar");
+  registerPlannerAllocatorHelper<og::LazyRRT>("geometric::LazyRRT");
+  registerPlannerAllocatorHelper<og::LBKPIECE1>("geometric::LBKPIECE");
+  registerPlannerAllocatorHelper<og::LBTRRT>("geometric::LBTRRT");
+  registerPlannerAllocatorHelper<og::PDST>("geometric::PDST");
+  registerPlannerAllocatorHelper<og::PRM>("geometric::PRM");
+  registerPlannerAllocatorHelper<og::PRMstar>("geometric::PRMstar");
+  registerPlannerAllocatorHelper<og::ProjEST>("geometric::ProjEST");
+  registerPlannerAllocatorHelper<og::RRT>("geometric::RRT");
+  registerPlannerAllocatorHelper<og::RRTConnect>("geometric::RRTConnect");
+  registerPlannerAllocatorHelper<og::RRTstar>("geometric::RRTstar");
+  registerPlannerAllocatorHelper<og::SBL>("geometric::SBL");
+  registerPlannerAllocatorHelper<og::SPARS>("geometric::SPARS");
+  registerPlannerAllocatorHelper<og::SPARStwo>("geometric::SPARStwo");
+  registerPlannerAllocatorHelper<og::STRIDE>("geometric::STRIDE");
+  registerPlannerAllocatorHelper<og::TRRT>("geometric::TRRT");
 }
 
 void ompl_interface::PlanningContextManager::registerDefaultStateSpaces()
@@ -227,27 +310,8 @@ void ompl_interface::PlanningContextManager::setPlannerConfigurations(
 }
 
 ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextManager::getPlanningContext(
-    const std::string& config, const std::string& factory_type) const
-{
-  auto pc = planner_configs_.find(config);
-
-  if (pc != planner_configs_.end())
-  {
-    moveit_msgs::MotionPlanRequest req;  // dummy request with default values
-    return getPlanningContext(
-        pc->second,
-        std::bind(&PlanningContextManager::getStateSpaceFactory1, this, std::placeholders::_1, factory_type), req);
-  }
-  else
-  {
-    ROS_ERROR_NAMED("planning_context_manager", "Planning configuration '%s' was not found", config.c_str());
-    return ModelBasedPlanningContextPtr();
-  }
-}
-
-ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextManager::getPlanningContext(
     const planning_interface::PlannerConfigurationSettings& config,
-    const StateSpaceFactoryTypeSelector& factory_selector, const moveit_msgs::MotionPlanRequest& req) const
+    const StateSpaceFactoryTypeSelector& factory_selector, const moveit_msgs::MotionPlanRequest& /*req*/) const
 {
   const ompl_interface::ModelBasedStateSpaceFactoryPtr& factory = factory_selector(config.group);
 
@@ -262,7 +326,7 @@ ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextMana
       for (const ModelBasedPlanningContextPtr& cached_context : cached_contexts->second)
         if (cached_context.unique())
         {
-          ROS_DEBUG_NAMED("planning_context_manager", "Reusing cached planning context");
+          ROS_DEBUG_NAMED(LOGNAME, "Reusing cached planning context");
           context = cached_context;
           break;
         }
@@ -282,28 +346,8 @@ ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextMana
     // Choose the correct simple setup type to load
     context_spec.ompl_simple_setup_.reset(new ompl::geometric::SimpleSetup(context_spec.state_space_));
 
-    bool state_validity_cache = true;
-    if (config.config.find("subspaces") != config.config.end())
-    {
-      context_spec.config_.erase("subspaces");
-      // if the planner operates at subspace level the cache may be unsafe
-      state_validity_cache = false;
-      boost::char_separator<char> sep(" ");
-      boost::tokenizer<boost::char_separator<char> > tok(config.config.at("subspaces"), sep);
-      for (boost::tokenizer<boost::char_separator<char> >::iterator beg = tok.begin(); beg != tok.end(); ++beg)
-      {
-        const ompl_interface::ModelBasedStateSpaceFactoryPtr& sub_fact = factory_selector(*beg);
-        if (sub_fact)
-        {
-          ModelBasedStateSpaceSpecification sub_space_spec(robot_model_, *beg);
-          context_spec.subspaces_.push_back(sub_fact->getNewStateSpace(sub_space_spec));
-        }
-      }
-    }
-
-    ROS_DEBUG_NAMED("planning_context_manager", "Creating new planning context");
+    ROS_DEBUG_NAMED(LOGNAME, "Creating new planning context");
     context.reset(new ModelBasedPlanningContext(config.name, context_spec));
-    context->useStateValidityCache(state_validity_cache);
     {
       std::unique_lock<std::mutex> slock(cached_contexts_->lock_);
       cached_contexts_->contexts_[std::make_pair(config.name, factory->getType())].push_back(context);
@@ -323,59 +367,59 @@ ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextMana
   return context;
 }
 
-const ompl_interface::ModelBasedStateSpaceFactoryPtr& ompl_interface::PlanningContextManager::getStateSpaceFactory1(
-    const std::string& /* dummy */, const std::string& factory_type) const
+const ompl_interface::ModelBasedStateSpaceFactoryPtr&
+ompl_interface::PlanningContextManager::getStateSpaceFactory1(const std::string& /* dummy */,
+                                                              const std::string& factory_type) const
 {
   auto f = factory_type.empty() ? state_space_factories_.begin() : state_space_factories_.find(factory_type);
   if (f != state_space_factories_.end())
     return f->second;
   else
   {
-    ROS_ERROR_NAMED("planning_context_manager", "Factory of type '%s' was not found", factory_type.c_str());
+    ROS_ERROR_NAMED(LOGNAME, "Factory of type '%s' was not found", factory_type.c_str());
     static const ModelBasedStateSpaceFactoryPtr EMPTY;
     return EMPTY;
   }
 }
 
-const ompl_interface::ModelBasedStateSpaceFactoryPtr& ompl_interface::PlanningContextManager::getStateSpaceFactory2(
-    const std::string& group, const moveit_msgs::MotionPlanRequest& req) const
+const ompl_interface::ModelBasedStateSpaceFactoryPtr&
+ompl_interface::PlanningContextManager::getStateSpaceFactory2(const std::string& group,
+                                                              const moveit_msgs::MotionPlanRequest& req) const
 {
   // find the problem representation to use
   auto best = state_space_factories_.end();
-  int prev_priority = -1;
+  int prev_priority = 0;
   for (auto it = state_space_factories_.begin(); it != state_space_factories_.end(); ++it)
   {
     int priority = it->second->canRepresentProblem(group, req, robot_model_);
-    if (priority > 0)
-      if (best == state_space_factories_.end() || priority > prev_priority)
-      {
-        best = it;
-        prev_priority = priority;
-      }
+    if (priority > prev_priority)
+    {
+      best = it;
+      prev_priority = priority;
+    }
   }
 
   if (best == state_space_factories_.end())
   {
-    ROS_ERROR_NAMED("planning_context_manager", "There are no known state spaces that can represent the given planning "
-                                                "problem");
+    ROS_ERROR_NAMED(LOGNAME, "There are no known state spaces that can represent the given planning "
+                             "problem");
     static const ModelBasedStateSpaceFactoryPtr EMPTY;
     return EMPTY;
   }
   else
   {
-    ROS_DEBUG_NAMED("planning_context_manager", "Using '%s' parameterization for solving problem", best->first.c_str());
+    ROS_DEBUG_NAMED(LOGNAME, "Using '%s' parameterization for solving problem", best->first.c_str());
     return best->second;
   }
 }
 
-ompl_interface::ModelBasedPlanningContextPtr
-ompl_interface::PlanningContextManager::getPlanningContext(const planning_scene::PlanningSceneConstPtr& planning_scene,
-                                                           const moveit_msgs::MotionPlanRequest& req,
-                                                           moveit_msgs::MoveItErrorCodes& error_code) const
+ompl_interface::ModelBasedPlanningContextPtr ompl_interface::PlanningContextManager::getPlanningContext(
+    const planning_scene::PlanningSceneConstPtr& planning_scene, const moveit_msgs::MotionPlanRequest& req,
+    moveit_msgs::MoveItErrorCodes& error_code, const ros::NodeHandle& nh, bool use_constraints_approximation) const
 {
   if (req.group_name.empty())
   {
-    ROS_ERROR_NAMED("planning_context_manager", "No group specified to plan for");
+    ROS_ERROR_NAMED(LOGNAME, "No group specified to plan for");
     error_code.val = moveit_msgs::MoveItErrorCodes::INVALID_GROUP_NAME;
     return ModelBasedPlanningContextPtr();
   }
@@ -384,7 +428,7 @@ ompl_interface::PlanningContextManager::getPlanningContext(const planning_scene:
 
   if (!planning_scene)
   {
-    ROS_ERROR_NAMED("planning_context_manager", "No planning scene supplied as input");
+    ROS_ERROR_NAMED(LOGNAME, "No planning scene supplied as input");
     return ModelBasedPlanningContextPtr();
   }
 
@@ -396,7 +440,7 @@ ompl_interface::PlanningContextManager::getPlanningContext(const planning_scene:
                                    req.group_name + "[" + req.planner_id + "]" :
                                    req.planner_id);
     if (pc == planner_configs_.end())
-      ROS_WARN_NAMED("planning_context_manager",
+      ROS_WARN_NAMED(LOGNAME,
                      "Cannot find planning configuration for group '%s' using planner '%s'. Will use defaults instead.",
                      req.group_name.c_str(), req.planner_id.c_str());
   }
@@ -406,8 +450,7 @@ ompl_interface::PlanningContextManager::getPlanningContext(const planning_scene:
     pc = planner_configs_.find(req.group_name);
     if (pc == planner_configs_.end())
     {
-      ROS_ERROR_NAMED("planning_context_manager", "Cannot find planning configuration for group '%s'",
-                      req.group_name.c_str());
+      ROS_ERROR_NAMED(LOGNAME, "Cannot find planning configuration for group '%s'", req.group_name.c_str());
       return ModelBasedPlanningContextPtr();
     }
   }
@@ -434,7 +477,7 @@ ompl_interface::PlanningContextManager::getPlanningContext(const planning_scene:
   {
     context->clear();
 
-    robot_state::RobotStatePtr start_state = planning_scene->getCurrentStateUpdated(req.start_state);
+    moveit::core::RobotStatePtr start_state = planning_scene->getCurrentStateUpdated(req.start_state);
 
     // Setup the context
     context->setPlanningScene(planning_scene);
@@ -450,13 +493,13 @@ ompl_interface::PlanningContextManager::getPlanningContext(const planning_scene:
 
     try
     {
-      context->configure();
-      ROS_DEBUG_NAMED("planning_context_manager", "%s: New planning context is set.", context->getName().c_str());
+      context->configure(nh, use_constraints_approximation);
+      ROS_DEBUG_NAMED(LOGNAME, "%s: New planning context is set.", context->getName().c_str());
       error_code.val = moveit_msgs::MoveItErrorCodes::SUCCESS;
     }
     catch (ompl::Exception& ex)
     {
-      ROS_ERROR_NAMED("planning_context_manager", "OMPL encountered an error: %s", ex.what());
+      ROS_ERROR_NAMED(LOGNAME, "OMPL encountered an error: %s", ex.what());
       context.reset();
     }
   }

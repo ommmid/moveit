@@ -34,13 +34,11 @@
 
 /* Author: Sachin Chitta, Dave Coleman */
 
-#ifndef MOVEIT_KINEMATICS_BASE_KINEMATICS_BASE_
-#define MOVEIT_KINEMATICS_BASE_KINEMATICS_BASE_
+#pragma once
 
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/Pose.h>
 #include <moveit_msgs/MoveItErrorCodes.h>
 #include <moveit/macros/class_forward.h>
-#include <moveit/macros/deprecation.h>
 #include <ros/node_handle.h>
 
 #include <boost/function.hpp>
@@ -53,8 +51,8 @@ namespace core
 MOVEIT_CLASS_FORWARD(JointModelGroup)
 MOVEIT_CLASS_FORWARD(RobotState)
 MOVEIT_CLASS_FORWARD(RobotModel)
-}
-}
+}  // namespace core
+}  // namespace moveit
 
 /** @brief API for forward and inverse kinematics */
 namespace kinematics
@@ -77,8 +75,8 @@ enum DiscretizationMethod
   SOME_RANDOM_SAMPLED /**< the discretization for some redundant joint will be randomly generated.
                            The unused redundant joints will be fixed at their current value. */
 };
-}
-typedef DiscretizationMethods::DiscretizationMethod DiscretizationMethod;
+}  // namespace DiscretizationMethods
+using DiscretizationMethod = DiscretizationMethods::DiscretizationMethod;
 
 /*
  * @enum KinematicErrors
@@ -99,8 +97,8 @@ enum KinematicError
   NO_SOLUTION                          /**< A valid joint solution that can reach this pose(s) could not be found */
 
 };
-}
-typedef KinematicErrors::KinematicError KinematicError;
+}  // namespace KinematicErrors
+using KinematicError = KinematicErrors::KinematicError;
 
 /**
  * @struct KinematicsQueryOptions
@@ -137,7 +135,7 @@ struct KinematicsResult
                                        of solutions explored. */
 };
 
-MOVEIT_CLASS_FORWARD(KinematicsBase);
+MOVEIT_CLASS_FORWARD(KinematicsBase);  // Defines KinematicsBasePtr, ConstPtr, WeakPtr... etc
 
 /**
  * @class KinematicsBase
@@ -150,9 +148,8 @@ public:
   static const double DEFAULT_TIMEOUT;               /* = 1.0 */
 
   /** @brief Signature for a callback to validate an IK solution. Typically used for collision checking. */
-  typedef boost::function<void(const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_solution,
-                               moveit_msgs::MoveItErrorCodes& error_code)>
-      IKCallbackFn;
+  using IKCallbackFn =
+      boost::function<void(const geometry_msgs::Pose&, const std::vector<double>&, moveit_msgs::MoveItErrorCodes&)>;
 
   /**
    * @brief Given a desired pose of the end-effector, compute the joint angles to reach it
@@ -174,12 +171,18 @@ public:
   /**
    * @brief Given the desired poses of all end-effectors, compute joint angles that are able to reach it.
    *
-   * This is a default implementation that returns only one solution and so its result is equivalent to calling
+   * The default implementation returns only one solution and so its result is equivalent to calling
    * 'getPositionIK(...)' with a zero initialized seed.
+   *
+   * Some planners (e.g. IKFast) support getting multiple joint solutions for a single pose.
+   * This can be enabled using the |DiscretizationMethods| enum and choosing an option that is not |NO_DISCRETIZATION|.
    *
    * @param ik_poses  The desired pose of each tip link
    * @param ik_seed_state an initial guess solution for the inverse kinematics
-   * @param solutions A vector of vectors where each entry is a valid joint solution
+   * @param solutions A vector of valid joint vectors. This return has two variant behaviors:
+   *                  1) Return a joint solution for every input |ik_poses|, e.g. multi-arm support
+   *                  2) Return multiple joint solutions for a single |ik_poses| input, e.g. underconstrained IK
+   *                  TODO(dave): This dual behavior is confusing and should be changed in a future refactor of this API
    * @param result A struct that reports the results of the query
    * @param options An option struct which contains the type of redundancy discretization used. This default
    *                implementation only supports the KinematicSearches::NO_DISCRETIZATION method; requesting any
@@ -293,8 +296,9 @@ public:
                    double timeout, const std::vector<double>& consistency_limits, std::vector<double>& solution,
                    const IKCallbackFn& solution_callback, moveit_msgs::MoveItErrorCodes& error_code,
                    const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions(),
-                   const moveit::core::RobotState* context_state = NULL) const
+                   const moveit::core::RobotState* context_state = nullptr) const
   {
+    (void)context_state;
     // For IK solvers that do not support multiple poses, fall back to single pose call
     if (ik_poses.size() == 1)
     {
@@ -336,9 +340,9 @@ public:
    * @param search_discretization The discretization of the search when the solver steps through the redundancy
    */
   /* Replace by tip_frames-based method! */
-  MOVEIT_DEPRECATED virtual void setValues(const std::string& robot_description, const std::string& group_name,
-                                           const std::string& base_frame, const std::string& tip_frame,
-                                           double search_discretization);
+  [[deprecated]] virtual void setValues(const std::string& robot_description, const std::string& group_name,
+                                        const std::string& base_frame, const std::string& tip_frame,
+                                        double search_discretization);
 
   /**
    * @brief Set the parameters for the solver, for use with non-chain IK solvers
@@ -368,9 +372,9 @@ public:
    * Instead of this method, use the method passing in a RobotModel!
    * Default implementation returns false, indicating that this API is not supported.
    */
-  MOVEIT_DEPRECATED virtual bool initialize(const std::string& robot_description, const std::string& group_name,
-                                            const std::string& base_frame, const std::string& tip_frame,
-                                            double search_discretization);
+  [[deprecated]] virtual bool initialize(const std::string& robot_description, const std::string& group_name,
+                                         const std::string& base_frame, const std::string& tip_frame,
+                                         double search_discretization);
 
   /**
    * @brief  Initialization function for the kinematics, for use with non-chain IK solvers
@@ -503,7 +507,7 @@ public:
    *          supported.
    * \return True if the group is supported, false if not.
    */
-  virtual bool supportsGroup(const moveit::core::JointModelGroup* jmg, std::string* error_text_out = NULL) const;
+  virtual bool supportsGroup(const moveit::core::JointModelGroup* jmg, std::string* error_text_out = nullptr) const;
 
   /**
    * @brief  Set the search discretization value for all the redundant joints
@@ -526,10 +530,10 @@ public:
   {
     redundant_joint_discretization_.clear();
     redundant_joint_indices_.clear();
-    for (std::map<int, double>::const_iterator i = discretization.begin(); i != discretization.end(); i++)
+    for (const auto& pair : discretization)
     {
-      redundant_joint_discretization_.insert(*i);
-      redundant_joint_indices_.push_back(i->first);
+      redundant_joint_discretization_.insert(pair);
+      redundant_joint_indices_.push_back(pair.first);
     }
   }
 
@@ -588,8 +592,8 @@ protected:
   // The next two variables still exists for backwards compatibility
   // with previously generated custom ik solvers like IKFast
   // Replace tip_frame_ -> tip_frames_[0], search_discretization_ -> redundant_joint_discretization_
-  MOVEIT_DEPRECATED std::string tip_frame_;
-  MOVEIT_DEPRECATED double search_discretization_;
+  [[deprecated]] std::string tip_frame_;
+  [[deprecated]] double search_discretization_;
 
   double default_timeout_;
   std::vector<unsigned int> redundant_joint_indices_;
@@ -658,6 +662,4 @@ protected:
 private:
   std::string removeSlash(const std::string& str) const;
 };
-};
-
-#endif
+}  // namespace kinematics

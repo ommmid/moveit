@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PLAN_EXECUTION_PLAN_REPRESENTATION_
-#define MOVEIT_PLAN_EXECUTION_PLAN_REPRESENTATION_
+#pragma once
 
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit/robot_trajectory/robot_trajectory.h>
@@ -53,8 +52,12 @@ struct ExecutableTrajectory
   {
   }
 
-  ExecutableTrajectory(const robot_trajectory::RobotTrajectoryPtr& trajectory, const std::string& description)
-    : trajectory_(trajectory), description_(description), trajectory_monitoring_(true)
+  ExecutableTrajectory(const robot_trajectory::RobotTrajectoryPtr& trajectory, const std::string& description,
+                       std::vector<std::string> controller_names = {})
+    : trajectory_(trajectory)
+    , description_(description)
+    , trajectory_monitoring_(true)
+    , controller_names_(std::move(controller_names))
   {
   }
 
@@ -63,6 +66,7 @@ struct ExecutableTrajectory
   bool trajectory_monitoring_;
   collision_detection::AllowedCollisionMatrixConstPtr allowed_collision_matrix_;
   boost::function<bool(const ExecutableMotionPlan*)> effect_on_success_;
+  std::vector<std::string> controller_names_;
 };
 
 /// A generic representation on what a computed motion plan looks like
@@ -81,6 +85,5 @@ struct ExecutableMotionPlan
 };
 
 /// The signature of a function that can compute a motion plan
-typedef boost::function<bool(ExecutableMotionPlan& plan)> ExecutableMotionPlanComputationFn;
-}
-#endif
+using ExecutableMotionPlanComputationFn = boost::function<bool(ExecutableMotionPlan&)>;
+}  // namespace plan_execution

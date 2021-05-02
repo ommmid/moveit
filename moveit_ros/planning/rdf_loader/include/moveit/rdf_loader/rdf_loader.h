@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan, Mathias Lüdtke, Dave Coleman */
 
-#ifndef MOVEIT_PLANNING_RDF_LOADER_
-#define MOVEIT_PLANNING_RDF_LOADER_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <urdf/model.h>
@@ -43,7 +42,7 @@
 
 namespace rdf_loader
 {
-MOVEIT_CLASS_FORWARD(RDFLoader);
+MOVEIT_CLASS_FORWARD(RDFLoader);  // Defines RDFLoaderPtr, ConstPtr, WeakPtr... etc
 
 /** @class RDFLoader
  *  @brief Default constructor
@@ -101,5 +100,4 @@ private:
   srdf::ModelSharedPtr srdf_;
   urdf::ModelInterfaceSharedPtr urdf_;
 };
-}
-#endif
+}  // namespace rdf_loader

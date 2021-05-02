@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PLANNING_SCENE_MONITOR_TRAJECTORY_MONITOR_
-#define MOVEIT_PLANNING_SCENE_MONITOR_TRAJECTORY_MONITOR_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/planning_scene_monitor/current_state_monitor.h>
@@ -45,10 +44,9 @@
 
 namespace planning_scene_monitor
 {
-typedef boost::function<void(const robot_state::RobotStateConstPtr& state, const ros::Time& stamp)>
-    TrajectoryStateAddedCallback;
+using TrajectoryStateAddedCallback = boost::function<void(const moveit::core::RobotStateConstPtr&, const ros::Time&)>;
 
-MOVEIT_CLASS_FORWARD(TrajectoryMonitor);
+MOVEIT_CLASS_FORWARD(TrajectoryMonitor);  // Defines TrajectoryMonitorPtr, ConstPtr, WeakPtr... etc
 
 /** @class TrajectoryMonitor
     @brief Monitors the joint_states topic and tf to record the trajectory of the robot. */
@@ -57,7 +55,7 @@ class TrajectoryMonitor
 public:
   /** @brief Constructor.
    */
-  TrajectoryMonitor(const CurrentStateMonitorConstPtr& state_monitor, double sampling_frequency = 5.0);
+  TrajectoryMonitor(const CurrentStateMonitorConstPtr& state_monitor, double sampling_frequency = 0.0);
 
   ~TrajectoryMonitor();
 
@@ -106,6 +104,4 @@ private:
   std::unique_ptr<boost::thread> record_states_thread_;
   TrajectoryStateAddedCallback state_add_callback_;
 };
-}
-
-#endif
+}  // namespace planning_scene_monitor

@@ -34,8 +34,7 @@
 
 /* Author: Sachin Chitta */
 
-#ifndef MOVEIT_SEMANTIC_WORLD_
-#define MOVEIT_SEMANTIC_WORLD_
+#pragma once
 
 #include <ros/ros.h>
 #include <moveit/macros/class_forward.h>
@@ -47,14 +46,14 @@
 
 namespace shapes
 {
-MOVEIT_CLASS_FORWARD(Shape);
+MOVEIT_CLASS_FORWARD(Shape);  // Defines ShapePtr, ConstPtr, WeakPtr... etc
 }
 
 namespace moveit
 {
 namespace semantic_world
 {
-MOVEIT_CLASS_FORWARD(SemanticWorld);
+MOVEIT_CLASS_FORWARD(SemanticWorld);  // Defines SemanticWorldPtr, ConstPtr, WeakPtr... etc
 
 /**
  * @brief A (simple) semantic world representation for pick and place and other tasks.
@@ -162,7 +161,5 @@ private:
 
   ros::Publisher planning_scene_diff_publisher_;
 };
-}
-}
-
-#endif
+}  // namespace semantic_world
+}  // namespace moveit

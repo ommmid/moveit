@@ -34,13 +34,12 @@
 
 /* Author: E. Gil Jones */
 
-#ifndef MOVEIT_COLLISION_DETECTION_DISTANCE_FIELD_COLLISION_COMMON_
-#define MOVEIT_COLLISION_DETECTION_DISTANCE_FIELD_COLLISION_COMMON_
+#pragma once
 
 #include <moveit/robot_state/robot_state.h>
 #include <moveit/macros/class_forward.h>
 #include <moveit/collision_detection/collision_common.h>
-#include <moveit/collision_detection/collision_world.h>
+#include <moveit/collision_detection/collision_env.h>
 #include <moveit/collision_distance_field/collision_distance_field_types.h>
 
 namespace collision_detection
@@ -115,7 +114,7 @@ struct DistanceFieldCacheEntry
   /** for checking collisions between this group and other objects */
   std::string group_name_;
   /** RobotState that this cache entry represents */
-  robot_state::RobotStatePtr state_;
+  moveit::core::RobotStatePtr state_;
   /** list of indices into the state_values_ vector.  One index for each joint
    * variable which is NOT in the group or a child of the group.  In other
    * words, variables which should not change if only joints in the group move.
@@ -171,13 +170,12 @@ BodyDecompositionConstPtr getBodyDecompositionCacheEntry(const shapes::ShapeCons
 PosedBodyPointDecompositionVectorPtr getCollisionObjectPointDecomposition(const collision_detection::World::Object& obj,
                                                                           double resolution);
 
-PosedBodySphereDecompositionVectorPtr getAttachedBodySphereDecomposition(const robot_state::AttachedBody* att,
+PosedBodySphereDecompositionVectorPtr getAttachedBodySphereDecomposition(const moveit::core::AttachedBody* att,
                                                                          double resolution);
 
-PosedBodyPointDecompositionVectorPtr getAttachedBodyPointDecomposition(const robot_state::AttachedBody* att,
+PosedBodyPointDecompositionVectorPtr getAttachedBodyPointDecomposition(const moveit::core::AttachedBody* att,
                                                                        double resolution);
 
 void getBodySphereVisualizationMarkers(const GroupStateRepresentationPtr& gsr, const std::string& reference_frame,
                                        visualization_msgs::MarkerArray& body_marker_array);
-}
-#endif
+}  // namespace collision_detection

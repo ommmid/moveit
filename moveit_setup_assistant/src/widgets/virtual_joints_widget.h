@@ -34,26 +34,21 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_VIRTUAL_JOINTS_WIDGET_
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_VIRTUAL_JOINTS_WIDGET_
+#pragma once
 
 // Qt
-#include <QWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QPushButton>
-#include <QTableWidget>
-#include <QStackedLayout>
-#include <QString>
-#include <QComboBox>
+class QLabel;
+class QLineEdit;
+class QPushButton;
+class QTableWidget;
+class QStackedWidget;
+class QComboBox;
 
 // SA
 #ifndef Q_MOC_RUN
 #include <moveit/setup_assistant/tools/moveit_config_data.h>
 #endif
 
-#include "header_widget.h"
 #include "setup_screen_widget.h"  // a base class for screens in the setup assistant
 
 namespace moveit_setup_assistant
@@ -80,7 +75,7 @@ public:
   QPushButton* btn_delete_;
   QPushButton* btn_save_;
   QPushButton* btn_cancel_;
-  QStackedLayout* stacked_layout_;
+  QStackedWidget* stacked_widget_;
   QLineEdit* vjoint_name_field_;
   QLineEdit* parent_name_field_;
   QComboBox* child_link_field_;
@@ -187,6 +182,4 @@ private:
   void edit(const std::string& name);
 };
 
-}  // namespace
-
-#endif
+}  // namespace moveit_setup_assistant

@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan, Dave Coleman */
 
-#ifndef MOVEIT_KINEMATICS_PLUGIN_LOADER_
-#define MOVEIT_KINEMATICS_PLUGIN_LOADER_
+#pragma once
 
 #include <boost/function.hpp>
 #include <moveit/macros/class_forward.h>
@@ -44,7 +43,7 @@
 
 namespace kinematics_plugin_loader
 {
-MOVEIT_CLASS_FORWARD(KinematicsPluginLoader);
+MOVEIT_CLASS_FORWARD(KinematicsPluginLoader);  // Defines KinematicsPluginLoaderPtr, ConstPtr, WeakPtr... etc
 
 /** \brief Helper class for loading kinematics solvers */
 class KinematicsPluginLoader
@@ -68,7 +67,7 @@ public:
       parameter under which the robot description can be found. This
       is passed to the kinematics solver initialization as well as
       used to read the SRDF document when needed. */
-  KinematicsPluginLoader(const std::string& solver_plugin, double solve_timeout, unsigned int ik_attempts,
+  KinematicsPluginLoader(const std::string& solver_plugin, double solve_timeout, unsigned int /*ik_attempts*/,
                          const std::string& robot_description = "robot_description",
                          double default_search_resolution = 0.0)
     : robot_description_(robot_description)
@@ -80,11 +79,11 @@ public:
 
   /** \brief Get a function pointer that allocates and initializes a kinematics solver. If not previously called, this
    * function reads the SRDF and calls the variant below. */
-  robot_model::SolverAllocatorFn getLoaderFunction();
+  moveit::core::SolverAllocatorFn getLoaderFunction();
 
   /** \brief Get a function pointer that allocates and initializes a kinematics solver. If not previously called, this
    * function reads ROS parameters for the groups defined in the SRDF. */
-  robot_model::SolverAllocatorFn getLoaderFunction(const srdf::ModelSharedPtr& srdf_model);
+  moveit::core::SolverAllocatorFn getLoaderFunction(const srdf::ModelSharedPtr& srdf_model);
 
   /** \brief Get the groups for which the function pointer returned by getLoaderFunction() can allocate a solver */
   const std::vector<std::string>& getKnownGroups() const
@@ -104,7 +103,7 @@ private:
   std::string robot_description_;
   double default_search_resolution_;
 
-  MOVEIT_CLASS_FORWARD(KinematicsLoaderImpl);
+  MOVEIT_CLASS_FORWARD(KinematicsLoaderImpl);  // Defines KinematicsLoaderImplPtr, ConstPtr, WeakPtr... etc
   KinematicsLoaderImplPtr loader_;
 
   std::vector<std::string> groups_;
@@ -114,6 +113,4 @@ private:
   std::string default_solver_plugin_;
   double default_solver_timeout_;
 };
-}
-
-#endif
+}  // namespace kinematics_plugin_loader

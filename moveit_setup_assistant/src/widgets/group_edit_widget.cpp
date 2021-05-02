@@ -34,12 +34,18 @@
 
 /* Author: Dave Coleman */
 
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QMessageBox>
+#include <QComboBox>
+#include <QFileDialog>
 #include <QFormLayout>
-#include <QString>
 #include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QString>
+#include <QVBoxLayout>
+
 #include "group_edit_widget.h"
 #include <pluginlib/class_loader.hpp>  // for loading all avail kinematic planners
 
@@ -88,6 +94,20 @@ GroupEditWidget::GroupEditWidget(QWidget* parent, const MoveItConfigDataPtr& con
   kinematics_timeout_field_->setMaximumWidth(400);
   form_layout->addRow("Kin. Search Timeout (sec):", kinematics_timeout_field_);
 
+  // file to load additional parameters from
+  kinematics_parameters_file_field_ = new QLineEdit(this);
+  kinematics_parameters_file_field_->setMaximumWidth(400);
+  QPushButton* kinematics_parameters_file_button = new QPushButton("...", this);
+  kinematics_parameters_file_button->setMaximumWidth(50);
+  connect(kinematics_parameters_file_button, SIGNAL(clicked()), this, SLOT(selectKinematicsFile()));
+  QBoxLayout* kinematics_parameters_file_layout = new QHBoxLayout(this);
+  kinematics_parameters_file_layout->addWidget(kinematics_parameters_file_field_);
+  kinematics_parameters_file_layout->addWidget(kinematics_parameters_file_button);
+  kinematics_parameters_file_layout->setContentsMargins(0, 0, 0, 0);
+  QWidget* container = new QWidget(this);
+  container->setLayout(kinematics_parameters_file_layout);
+  form_layout->addRow("Kin. parameters file:", container);
+
   group1->setLayout(form_layout);
 
   // OMPL Planner form --------------------------------------------
@@ -127,6 +147,12 @@ GroupEditWidget::GroupEditWidget(QWidget* parent, const MoveItConfigDataPtr& con
   add_subtitle->setFont(add_subtitle_font);
   recommended_options->addWidget(add_subtitle, 0, Qt::AlignLeft);
 
+  // Save and add chain
+  QPushButton* btn_save_chain = new QPushButton("Add Kin. Chain", this);
+  btn_save_chain->setMaximumWidth(200);
+  connect(btn_save_chain, SIGNAL(clicked()), this, SIGNAL(saveChain()));
+  recommended_options->addWidget(btn_save_chain);
+
   // Save and add joints
   QPushButton* btn_save_joints = new QPushButton("Add Joints", this);
   btn_save_joints->setMaximumWidth(200);
@@ -138,23 +164,17 @@ GroupEditWidget::GroupEditWidget(QWidget* parent, const MoveItConfigDataPtr& con
   add_subtitle2->setFont(add_subtitle_font);
   advanced_options->addWidget(add_subtitle2, 0, Qt::AlignLeft);
 
-  // Save and add links
-  QPushButton* btn_save_links = new QPushButton("Add Links", this);
-  btn_save_links->setMaximumWidth(200);
-  connect(btn_save_links, SIGNAL(clicked()), this, SIGNAL(saveLinks()));
-  advanced_options->addWidget(btn_save_links);
-
-  // Save and add chain
-  QPushButton* btn_save_chain = new QPushButton("Add Kin. Chain", this);
-  btn_save_chain->setMaximumWidth(200);
-  connect(btn_save_chain, SIGNAL(clicked()), this, SIGNAL(saveChain()));
-  advanced_options->addWidget(btn_save_chain);
-
   // Save and add subgroups
   QPushButton* btn_save_subgroups = new QPushButton("Add Subgroups", this);
   btn_save_subgroups->setMaximumWidth(200);
   connect(btn_save_subgroups, SIGNAL(clicked()), this, SIGNAL(saveSubgroups()));
   advanced_options->addWidget(btn_save_subgroups);
+
+  // Save and add links
+  QPushButton* btn_save_links = new QPushButton("Add Links", this);
+  btn_save_links->setMaximumWidth(200);
+  connect(btn_save_links, SIGNAL(clicked()), this, SIGNAL(saveLinks()));
+  advanced_options->addWidget(btn_save_links);
 
   // Add layouts
   new_buttons_layout_container->addLayout(label_layout);
@@ -165,10 +185,8 @@ GroupEditWidget::GroupEditWidget(QWidget* parent, const MoveItConfigDataPtr& con
   new_buttons_widget_->setLayout(new_buttons_layout_container);
   layout->addWidget(new_buttons_widget_);
 
-  // Verticle Spacer -----------------------------------------------------
-  QWidget* vspacer = new QWidget(this);
-  vspacer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-  layout->addWidget(vspacer);
+  // Vertical Spacer
+  layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Minimum, QSizePolicy::Expanding));
 
   // Bottom Controls ---------------------------------------------------------
   QHBoxLayout* controls_layout = new QHBoxLayout();
@@ -181,9 +199,7 @@ GroupEditWidget::GroupEditWidget(QWidget* parent, const MoveItConfigDataPtr& con
   controls_layout->setAlignment(btn_delete_, Qt::AlignRight);
 
   // Horizontal Spacer
-  QWidget* spacer = new QWidget(this);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  controls_layout->addWidget(spacer);
+  controls_layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   // Save
   btn_save_ = new QPushButton("&Save", this);
@@ -220,7 +236,7 @@ void GroupEditWidget::setSelected(const std::string& group_name)
   if (*resolution == 0)
   {
     // Set default value
-    *resolution = DEFAULT_KIN_SOLVER_SEARCH_RESOLUTION_;
+    *resolution = DEFAULT_KIN_SOLVER_SEARCH_RESOLUTION;
   }
   kinematics_resolution_field_->setText(QString::number(*resolution));
 
@@ -229,7 +245,7 @@ void GroupEditWidget::setSelected(const std::string& group_name)
   if (*timeout == 0)
   {
     // Set default value
-    *timeout = DEFAULT_KIN_SOLVER_TIMEOUT_;
+    *timeout = DEFAULT_KIN_SOLVER_TIMEOUT;
   }
   kinematics_timeout_field_->setText(QString::number(*timeout));
 
@@ -250,13 +266,16 @@ void GroupEditWidget::setSelected(const std::string& group_name)
                          QString("Unable to find the kinematic solver '")
                              .append(kin_solver.c_str())
                              .append("'. Trying running rosmake for this package. Until fixed, this setting will be "
-                                     "lost the next time the MoveIt! configuration files are generated"));
+                                     "lost the next time the MoveIt configuration files are generated"));
     return;
   }
   else
   {
     kinematics_solver_field_->setCurrentIndex(index);
   }
+
+  kinematics_parameters_file_field_->setText(
+      config_data_->group_meta_data_[group_name].kinematics_parameters_file_.c_str());
 
   // Set default planner
   std::string default_planner = config_data_->group_meta_data_[group_name].default_planner_;
@@ -306,8 +325,9 @@ void GroupEditWidget::loadKinematicPlannersComboBox()
   }
   catch (pluginlib::PluginlibException& ex)
   {
-    QMessageBox::warning(this, "Missing Kinematic Solvers", "Exception while creating class loader for kinematic "
-                                                            "solver plugins");
+    QMessageBox::warning(this, "Missing Kinematic Solvers",
+                         "Exception while creating class loader for kinematic "
+                         "solver plugins");
     ROS_ERROR_STREAM(ex.what());
     return;
   }
@@ -318,9 +338,10 @@ void GroupEditWidget::loadKinematicPlannersComboBox()
   // Warn if no plugins are found
   if (classes.empty())
   {
-    QMessageBox::warning(this, "Missing Kinematic Solvers", "No MoveIt!-compatible kinematics solvers found. Try "
-                                                            "installing moveit_kinematics (sudo apt-get install "
-                                                            "ros-${ROS_DISTRO}-moveit-kinematics)");
+    QMessageBox::warning(this, "Missing Kinematic Solvers",
+                         "No MoveIt-compatible kinematics solvers found. Try "
+                         "installing moveit_kinematics (sudo apt-get install "
+                         "ros-${ROS_DISTRO}-moveit-kinematics)");
     return;
   }
 
@@ -336,6 +357,28 @@ void GroupEditWidget::loadKinematicPlannersComboBox()
     std::string planner_name = planner.name_;
     default_planner_field_->addItem(planner_name.c_str());
   }
+}
+
+void GroupEditWidget::selectKinematicsFile()
+{
+  QString filename = QFileDialog::getOpenFileName(this, "Select a parameter file", "", "YAML files (*.yaml)");
+
+  if (filename.isEmpty())
+  {
+    return;
+  }
+
+  std::string package_name;
+  std::string relative_filename;
+  bool package_found =
+      config_data_->extractPackageNameFromPath(filename.toStdString(), package_name, relative_filename);
+
+  QString lookup_path = filename;
+  if (package_found)
+  {
+    lookup_path = QString("$(find %1)/%2").arg(package_name.c_str()).arg(relative_filename.c_str());
+  }
+  kinematics_parameters_file_field_->setText(lookup_path);
 }
 
 }  // namespace moveit_setup_assistant

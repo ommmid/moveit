@@ -36,8 +36,7 @@
 
 // This file is a slightly modified version of <ompl/datastructures/GreedyKCenters.h>
 
-#ifndef MOVEIT_ROS_PLANNING_CACHED_IK_KINEMATICS_GREEDY_K_CENTERS_
-#define MOVEIT_ROS_PLANNING_CACHED_IK_KINEMATICS_GREEDY_K_CENTERS_
+#pragma once
 
 #include <functional>
 #include <random>
@@ -85,7 +84,7 @@ public:
   {
     // array containing the minimum distance between each data point
     // and the centers computed so far
-    std::vector<double> minDist(data.size(), std::numeric_limits<double>::infinity());
+    std::vector<double> min_dist(data.size(), std::numeric_limits<double>::infinity());
 
     centers.clear();
     centers.reserve(k);
@@ -97,20 +96,20 @@ public:
     {
       unsigned ind = 0;
       const _T& center = data[centers[i - 1]];
-      double maxDist = -std::numeric_limits<double>::infinity();
+      double max_dist = -std::numeric_limits<double>::infinity();
       for (unsigned j = 0; j < data.size(); ++j)
       {
-        if ((dists(j, i - 1) = distFun_(data[j], center)) < minDist[j])
-          minDist[j] = dists(j, i - 1);
+        if ((dists(j, i - 1) = distFun_(data[j], center)) < min_dist[j])
+          min_dist[j] = dists(j, i - 1);
         // the j-th center is the one furthest away from center 0,..,j-1
-        if (minDist[j] > maxDist)
+        if (min_dist[j] > max_dist)
         {
           ind = j;
-          maxDist = minDist[j];
+          max_dist = min_dist[j];
         }
       }
       // no more centers available
-      if (maxDist < std::numeric_limits<double>::epsilon())
+      if (max_dist < std::numeric_limits<double>::epsilon())
         break;
       centers.push_back(ind);
     }
@@ -128,6 +127,4 @@ protected:
   /** Random number generator used to select first center */
   std::mt19937 generator_{ std::random_device{}() };
 };
-}
-
-#endif
+}  // namespace cached_ik_kinematics_plugin

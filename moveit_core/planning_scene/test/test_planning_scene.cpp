@@ -36,6 +36,8 @@
 
 #include <gtest/gtest.h>
 #include <moveit/planning_scene/planning_scene.h>
+#include <moveit/utils/message_checks.h>
+#include <moveit/utils/robot_model_test_utils.h>
 #include <urdf_parser/urdf_parser.h>
 #include <fstream>
 #include <sstream>
@@ -43,42 +45,9 @@
 #include <boost/filesystem/path.hpp>
 #include <ros/package.h>
 
-// This function needs to return void so the gtest FAIL() macro inside
-// it works right.
-void loadModelFile(std::string filename, std::string& file_content)
-{
-  boost::filesystem::path res_path(ros::package::getPath("moveit_resources"));
-  std::string xml_string;
-  std::fstream xml_file((res_path / filename).string().c_str(), std::fstream::in);
-  EXPECT_TRUE(xml_file.is_open());
-  while (xml_file.good())
-  {
-    std::string line;
-    std::getline(xml_file, line);
-    xml_string += (line + "\n");
-  }
-  xml_file.close();
-  file_content = xml_string;
-}
-
-void loadRobotModel(urdf::ModelInterfaceSharedPtr& robot_model_out)
-{
-  std::string xml_string;
-  loadModelFile("pr2_description/urdf/robot.xml", xml_string);
-  robot_model_out = urdf::parseURDF(xml_string);
-}
-void loadRobotModels(urdf::ModelInterfaceSharedPtr& robot_model_out, srdf::ModelSharedPtr& srdf_model_out)
-{
-  loadRobotModel(robot_model_out);
-  std::string xml_string;
-  loadModelFile("pr2_description/srdf/robot.xml", xml_string);
-  srdf_model_out->initString(*robot_model_out, xml_string);
-}
-
 TEST(PlanningScene, LoadRestore)
 {
-  urdf::ModelInterfaceSharedPtr urdf_model;
-  loadRobotModel(urdf_model);
+  urdf::ModelInterfaceSharedPtr urdf_model = moveit::core::loadModelInterface("pr2");
   srdf::ModelSharedPtr srdf_model(new srdf::Model());
   planning_scene::PlanningScene ps(urdf_model, srdf_model);
   moveit_msgs::PlanningScene ps_msg;
@@ -92,76 +61,100 @@ TEST(PlanningScene, LoadRestore)
 
 TEST(PlanningScene, LoadRestoreDiff)
 {
-  urdf::ModelInterfaceSharedPtr urdf_model;
-  loadRobotModel(urdf_model);
+  urdf::ModelInterfaceSharedPtr urdf_model = moveit::core::loadModelInterface("pr2");
   srdf::ModelSharedPtr srdf_model(new srdf::Model());
-
-  planning_scene::PlanningScenePtr ps(new planning_scene::PlanningScene(urdf_model, srdf_model));
+  auto ps = std::make_shared<planning_scene::PlanningScene>(urdf_model, srdf_model);
 
   collision_detection::World& world = *ps->getWorldNonConst();
+
+  /* add one object to ps's world */
   Eigen::Isometry3d id = Eigen::Isometry3d::Identity();
   world.addToObject("sphere", shapes::ShapeConstPtr(new shapes::Sphere(0.4)), id);
 
+  /* ps can be written to and set from message */
   moveit_msgs::PlanningScene ps_msg;
   ps_msg.robot_state.is_diff = true;
-  EXPECT_TRUE(planning_scene::PlanningScene::isEmpty(ps_msg));
+  EXPECT_TRUE(moveit::core::isEmpty(ps_msg));
   ps->getPlanningSceneMsg(ps_msg);
   ps->setPlanningSceneMsg(ps_msg);
-  EXPECT_FALSE(planning_scene::PlanningScene::isEmpty(ps_msg));
+  EXPECT_EQ(ps_msg.world.collision_objects.size(), 1u);
+  EXPECT_EQ(ps_msg.world.collision_objects[0].id, "sphere");
   EXPECT_TRUE(world.hasObject("sphere"));
 
+  /* test diff scene on top of ps */
   planning_scene::PlanningScenePtr next = ps->diff();
+  /* world is inherited from ps */
   EXPECT_TRUE(next->getWorld()->hasObject("sphere"));
-  next->getWorldNonConst()->addToObject("sphere2", shapes::ShapeConstPtr(new shapes::Sphere(0.5)), id);
+
+  /* object in overlay is only added in overlay */
+  next->getWorldNonConst()->addToObject("sphere_in_next_only", shapes::ShapeConstPtr(new shapes::Sphere(0.5)), id);
   EXPECT_EQ(next->getWorld()->size(), 2u);
   EXPECT_EQ(ps->getWorld()->size(), 1u);
+
+  /* the worlds used for collision detection contain one and two objects, respectively */
+  EXPECT_EQ(ps->getCollisionEnv()->getWorld()->size(), 1u);
+  EXPECT_EQ(ps->getCollisionEnvUnpadded()->getWorld()->size(), 1u);
+
+  EXPECT_EQ(next->getCollisionEnv()->getWorld()->size(), 2u);
+  EXPECT_EQ(next->getCollisionEnvUnpadded()->getWorld()->size(), 2u);
+
+  /* maintained diff contains only overlay object */
   next->getPlanningSceneDiffMsg(ps_msg);
   EXPECT_EQ(ps_msg.world.collision_objects.size(), 1u);
+
+  /* copy ps to next and apply diff */
   next->decoupleParent();
   moveit_msgs::PlanningScene ps_msg2;
+
+  /* diff is empty now */
   next->getPlanningSceneDiffMsg(ps_msg2);
   EXPECT_EQ(ps_msg2.world.collision_objects.size(), 0u);
+
+  /* next's world contains both objects */
   next->getPlanningSceneMsg(ps_msg);
   EXPECT_EQ(ps_msg.world.collision_objects.size(), 2u);
   ps->setPlanningSceneMsg(ps_msg);
   EXPECT_EQ(ps->getWorld()->size(), 2u);
+  EXPECT_EQ(ps->getCollisionEnv()->getWorld()->size(), 2u);
+  EXPECT_EQ(ps->getCollisionEnvUnpadded()->getWorld()->size(), 2u);
 }
 
 TEST(PlanningScene, MakeAttachedDiff)
 {
+  urdf::ModelInterfaceSharedPtr urdf_model = moveit::core::loadModelInterface("pr2");
   srdf::ModelSharedPtr srdf_model(new srdf::Model());
-  urdf::ModelInterfaceSharedPtr urdf_model;
-  loadRobotModel(urdf_model);
+  auto ps = std::make_shared<planning_scene::PlanningScene>(urdf_model, srdf_model);
 
-  planning_scene::PlanningScenePtr ps(new planning_scene::PlanningScene(urdf_model, srdf_model));
-
+  /* add a single object to ps's world */
   collision_detection::World& world = *ps->getWorldNonConst();
   Eigen::Isometry3d id = Eigen::Isometry3d::Identity();
   world.addToObject("sphere", shapes::ShapeConstPtr(new shapes::Sphere(0.4)), id);
 
+  /* attach object in diff */
   planning_scene::PlanningScenePtr attached_object_diff_scene = ps->diff();
 
   moveit_msgs::AttachedCollisionObject att_obj;
   att_obj.link_name = "r_wrist_roll_link";
   att_obj.object.operation = moveit_msgs::CollisionObject::ADD;
   att_obj.object.id = "sphere";
+  attached_object_diff_scene->processAttachedCollisionObjectMsg(att_obj);
+
+  /* object is not in world anymore */
+  EXPECT_EQ(attached_object_diff_scene->getWorld()->size(), 0u);
+  /* it became part of the robot state though */
+  EXPECT_TRUE(attached_object_diff_scene->getCurrentState().hasAttachedBody("sphere"));
 
   collision_detection::CollisionRequest req;
   collision_detection::CollisionResult res;
-
-  attached_object_diff_scene->processAttachedCollisionObjectMsg(att_obj);
   attached_object_diff_scene->checkCollision(req, res);
   ps->checkCollision(req, res);
 }
 
 TEST(PlanningScene, isStateValid)
 {
-  srdf::ModelSharedPtr srdf_model(new srdf::Model());
-  urdf::ModelInterfaceSharedPtr urdf_model;
-  loadRobotModels(urdf_model, srdf_model);
-
-  planning_scene::PlanningScenePtr ps(new planning_scene::PlanningScene(urdf_model, srdf_model));
-  robot_state::RobotState current_state = ps->getCurrentState();
+  moveit::core::RobotModelPtr robot_model = moveit::core::loadTestingRobotModel("pr2");
+  auto ps = std::make_shared<planning_scene::PlanningScene>(robot_model->getURDF(), robot_model->getSRDF());
+  moveit::core::RobotState current_state = ps->getCurrentState();
   if (ps->isStateColliding(current_state, "left_arm"))
   {
     EXPECT_FALSE(ps->isStateValid(current_state, "left_arm"));
@@ -170,10 +163,8 @@ TEST(PlanningScene, isStateValid)
 
 TEST(PlanningScene, loadGoodSceneGeometry)
 {
-  srdf::ModelSharedPtr srdf_model(new srdf::Model());
-  urdf::ModelInterfaceSharedPtr urdf_model;
-  loadRobotModels(urdf_model, srdf_model);
-  planning_scene::PlanningScenePtr ps(new planning_scene::PlanningScene(urdf_model, srdf_model));
+  moveit::core::RobotModelPtr robot_model = moveit::core::loadTestingRobotModel("pr2");
+  auto ps = std::make_shared<planning_scene::PlanningScene>(robot_model->getURDF(), robot_model->getSRDF());
 
   std::istringstream good_scene_geometry;
   good_scene_geometry.str("foobar_scene\n"
@@ -201,10 +192,8 @@ TEST(PlanningScene, loadGoodSceneGeometry)
 
 TEST(PlanningScene, loadBadSceneGeometry)
 {
-  srdf::ModelSharedPtr srdf_model(new srdf::Model());
-  urdf::ModelInterfaceSharedPtr urdf_model;
-  loadRobotModels(urdf_model, srdf_model);
-  planning_scene::PlanningScenePtr ps(new planning_scene::PlanningScene(urdf_model, srdf_model));
+  moveit::core::RobotModelPtr robot_model = moveit::core::loadTestingRobotModel("pr2");
+  auto ps = std::make_shared<planning_scene::PlanningScene>(robot_model->getURDF(), robot_model->getSRDF());
   std::istringstream empty_scene_geometry;
 
   // This should fail since there is no planning scene name and no end of geometry marker.

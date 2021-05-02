@@ -35,8 +35,7 @@
 
 /* Author: Ioan Sucan, Acorn Pooley */
 
-#ifndef MOVEIT_ROBOT_INTERACTION_LOCKED_ROBOT_STATE_
-#define MOVEIT_ROBOT_INTERACTION_LOCKED_ROBOT_STATE_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/robot_state/robot_state.h>
@@ -45,7 +44,7 @@
 
 namespace robot_interaction
 {
-MOVEIT_CLASS_FORWARD(LockedRobotState);
+MOVEIT_CLASS_FORWARD(LockedRobotState);  // Defines LockedRobotStatePtr, ConstPtr, WeakPtr... etc
 
 /// Maintain a RobotState in a multithreaded environment.
 //
@@ -61,8 +60,8 @@ MOVEIT_CLASS_FORWARD(LockedRobotState);
 class LockedRobotState
 {
 public:
-  LockedRobotState(const robot_state::RobotState& state);
-  LockedRobotState(const robot_model::RobotModelPtr& model);
+  LockedRobotState(const moveit::core::RobotState& state);
+  LockedRobotState(const moveit::core::RobotModelPtr& model);
 
   virtual ~LockedRobotState();
 
@@ -73,13 +72,13 @@ public:
   // it.
   //
   // The transforms in the returned state will always be up to date.
-  robot_state::RobotStateConstPtr getState() const;
+  moveit::core::RobotStateConstPtr getState() const;
 
   /// Set the state to the new value.
-  void setState(const robot_state::RobotState& state);
+  void setState(const moveit::core::RobotState& state);
 
   // This is a function that can modify the maintained state.
-  typedef boost::function<void(robot_state::RobotState*)> ModifyStateFunction;
+  typedef boost::function<void(moveit::core::RobotState*)> ModifyStateFunction;
 
   // Modify the state.
   //
@@ -106,8 +105,6 @@ private:
   // The state maintained by this class.
   // When a modify function is being called this is NULL.
   // PROTECTED BY state_lock_
-  robot_state::RobotStatePtr state_;
+  moveit::core::RobotStatePtr state_;
 };
-}
-
-#endif
+}  // namespace robot_interaction

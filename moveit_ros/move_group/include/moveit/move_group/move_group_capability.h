@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVE_GROUP_CAPABILITY_
-#define MOVEIT_MOVE_GROUP_CAPABILITY_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
@@ -53,7 +52,7 @@ enum MoveGroupState
   LOOK
 };
 
-MOVEIT_CLASS_FORWARD(MoveGroupCapability);
+MOVEIT_CLASS_FORWARD(MoveGroupCapability);  // Defines MoveGroupCapabilityPtr, ConstPtr, WeakPtr... etc
 
 class MoveGroupCapability
 {
@@ -98,6 +97,4 @@ protected:
   std::string capability_name_;
   MoveGroupContextPtr context_;
 };
-}
-
-#endif
+}  // namespace move_group

@@ -33,14 +33,13 @@
  *********************************************************************/
 
 /* Author: Dave Coleman, Masaki Murooka
-   Desc:   Connects MoveIt! to any inverse kinematics solver via a ROS service call
+   Desc:   Connects MoveIt to any inverse kinematics solver via a ROS service call
            Supports planning groups with multiple tip frames
            \todo: better support for mimic joints
            \todo: better support for redundant joints
 */
 
-#ifndef MOVEIT_ROS_PLANNING_SRV_KINEMATICS_PLUGIN_
-#define MOVEIT_ROS_PLANNING_SRV_KINEMATICS_PLUGIN_
+#pragma once
 
 // ROS
 #include <ros/ros.h>
@@ -49,13 +48,11 @@
 #include <memory>
 
 // ROS msgs
-#include <geometry_msgs/PoseStamped.h>
-#include <moveit_msgs/GetPositionFK.h>
-#include <moveit_msgs/GetPositionIK.h>
+#include <geometry_msgs/Pose.h>
 #include <moveit_msgs/KinematicSolverInfo.h>
 #include <moveit_msgs/MoveItErrorCodes.h>
 
-// MoveIt!
+// MoveIt
 #include <moveit/kinematics_base/kinematics_base.h>
 #include <moveit/robot_state/robot_state.h>
 
@@ -73,10 +70,10 @@ public:
    */
   SrvKinematicsPlugin();
 
-  bool getPositionIK(
-      const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, std::vector<double>& solution,
-      moveit_msgs::MoveItErrorCodes& error_code,
-      const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
+  bool
+  getPositionIK(const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state,
+                std::vector<double>& solution, moveit_msgs::MoveItErrorCodes& error_code,
+                const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
 
   bool searchPositionIK(
       const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, double timeout,
@@ -99,6 +96,12 @@ public:
       const std::vector<double>& consistency_limits, std::vector<double>& solution,
       const IKCallbackFn& solution_callback, moveit_msgs::MoveItErrorCodes& error_code,
       const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
+
+  bool searchPositionIK(const std::vector<geometry_msgs::Pose>& ik_poses, const std::vector<double>& ik_seed_state,
+                        double timeout, const std::vector<double>& consistency_limits, std::vector<double>& solution,
+                        const IKCallbackFn& solution_callback, moveit_msgs::MoveItErrorCodes& error_code,
+                        const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions(),
+                        const moveit::core::RobotState* context_state = nullptr) const override;
 
   bool getPositionFK(const std::vector<std::string>& link_names, const std::vector<double>& joint_angles,
                      std::vector<geometry_msgs::Pose>& poses) const override;
@@ -123,18 +126,6 @@ public:
   const std::vector<std::string>& getVariableNames() const;
 
 protected:
-  virtual bool
-  searchPositionIK(const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, double timeout,
-                   std::vector<double>& solution, const IKCallbackFn& solution_callback,
-                   moveit_msgs::MoveItErrorCodes& error_code, const std::vector<double>& consistency_limits,
-                   const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const;
-
-  virtual bool
-  searchPositionIK(const std::vector<geometry_msgs::Pose>& ik_poses, const std::vector<double>& ik_seed_state,
-                   double timeout, const std::vector<double>& consistency_limits, std::vector<double>& solution,
-                   const IKCallbackFn& solution_callback, moveit_msgs::MoveItErrorCodes& error_code,
-                   const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const;
-
   bool setRedundantJoints(const std::vector<unsigned int>& redundant_joint_indices) override;
 
 private:
@@ -150,14 +141,12 @@ private:
 
   unsigned int dimension_; /** Dimension of the group */
 
-  const robot_model::JointModelGroup* joint_model_group_;
+  const moveit::core::JointModelGroup* joint_model_group_;
 
-  robot_state::RobotStatePtr robot_state_;
+  moveit::core::RobotStatePtr robot_state_;
 
   int num_possible_redundant_joints_;
 
   std::shared_ptr<ros::ServiceClient> ik_service_client_;
 };
-}
-
-#endif
+}  // namespace srv_kinematics_plugin

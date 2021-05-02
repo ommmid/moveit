@@ -42,7 +42,6 @@
 #include <pluginlib/class_list_macros.hpp>
 #include <ros/console.h>
 #include <map>
-#include <iterator>
 
 namespace moveit_fake_controller_manager
 {
@@ -96,8 +95,8 @@ public:
 
         if (controller_list[i]["joints"].getType() != XmlRpc::XmlRpcValue::TypeArray)
         {
-          ROS_ERROR_STREAM_NAMED("MoveItFakeControllerManager", "The list of joints for controller "
-                                                                    << name << " is not specified as an array");
+          ROS_ERROR_STREAM_NAMED("MoveItFakeControllerManager",
+                                 "The list of joints for controller " << name << " is not specified as an array");
           continue;
         }
         std::vector<std::string> joints;
@@ -115,6 +114,12 @@ public:
           controllers_[name].reset(new InterpolatingController(name, joints, pub_));
         else
           ROS_ERROR_STREAM("Unknown fake controller type: " << type);
+
+        moveit_controller_manager::MoveItControllerManager::ControllerState state;
+        state.default_ = controller_list[i].hasMember("default") ? (bool)controller_list[i]["default"] : false;
+        state.active_ = true;
+
+        controller_states_[name] = state;
       }
       catch (...)
       {
@@ -135,10 +140,12 @@ public:
     }
 
     robot_model_loader::RobotModelLoader robot_model_loader(ROBOT_DESCRIPTION);
-    const robot_model::RobotModelPtr& robot_model = robot_model_loader.getModel();
+    const moveit::core::RobotModelPtr& robot_model = robot_model_loader.getModel();
+    moveit::core::RobotState robot_state(robot_model);
     typedef std::map<std::string, double> JointPoseMap;
     JointPoseMap joints;
 
+    robot_state.setToDefaultValues();  // initialize all joint values (just in case...)
     for (int i = 0, end = param.size(); i != end; ++i)
     {
       try
@@ -151,7 +158,6 @@ public:
           continue;
         }
         moveit::core::JointModelGroup* jmg = robot_model->getJointModelGroup(group_name);
-        moveit::core::RobotState robot_state(robot_model);
         const std::vector<std::string>& joint_names = jmg->getActiveJointModelNames();
 
         if (!robot_state.setToDefaultValues(jmg, pose_name))
@@ -188,10 +194,10 @@ public:
     }
 
     // fill the joint state
-    for (JointPoseMap::const_iterator it = joints.begin(), end = joints.end(); it != end; ++it)
+    for (const auto& name_pos_pair : joints)
     {
-      js.name.push_back(it->first);
-      js.position.push_back(it->second);
+      js.name.push_back(name_pos_pair.first);
+      js.position.push_back(name_pos_pair.second);
     }
     return js;
   }
@@ -257,20 +263,15 @@ public:
     }
   }
 
-  /*
-   * Controllers are all active and default.
-   */
   moveit_controller_manager::MoveItControllerManager::ControllerState
   getControllerState(const std::string& name) override
   {
-    moveit_controller_manager::MoveItControllerManager::ControllerState state;
-    state.active_ = true;
-    state.default_ = true;
-    return state;
+    return controller_states_[name];
   }
 
   /* Cannot switch our controllers */
-  bool switchControllers(const std::vector<std::string>& activate, const std::vector<std::string>& deactivate) override
+  bool switchControllers(const std::vector<std::string>& /*activate*/,
+                         const std::vector<std::string>& /*deactivate*/) override
   {
     return false;
   }
@@ -279,6 +280,7 @@ protected:
   ros::NodeHandle node_handle_;
   ros::Publisher pub_;
   std::map<std::string, BaseFakeControllerPtr> controllers_;
+  std::map<std::string, moveit_controller_manager::MoveItControllerManager::ControllerState> controller_states_;
 };
 
 }  // end namespace moveit_fake_controller_manager

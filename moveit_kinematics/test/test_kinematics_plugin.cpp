@@ -43,7 +43,7 @@
 #include <tf2_eigen/tf2_eigen.h>
 #include <xmlrpcpp/XmlRpcValue.h>
 
-// MoveIt!
+// MoveIt
 #include <moveit/kinematics_base/kinematics_base.h>
 #include <moveit/rdf_loader/rdf_loader.h>
 #include <moveit/robot_model/robot_model.h>
@@ -77,7 +77,7 @@ class SharedData
   friend class KinematicsTest;
   typedef pluginlib::ClassLoader<kinematics::KinematicsBase> KinematicsLoader;
 
-  robot_model::RobotModelPtr robot_model_;
+  moveit::core::RobotModelPtr robot_model_;
   std::unique_ptr<KinematicsLoader> kinematics_loader_;
   std::string root_link_;
   std::string tip_link_;
@@ -104,7 +104,7 @@ class SharedData
     ROS_INFO_STREAM("Loading robot model from " << ros::this_node::getNamespace() << "/" << ROBOT_DESCRIPTION_PARAM);
     // load robot model
     rdf_loader::RDFLoader rdf_loader(ROBOT_DESCRIPTION_PARAM);
-    robot_model_ = std::make_shared<robot_model::RobotModel>(rdf_loader.getURDF(), rdf_loader.getSRDF());
+    robot_model_ = std::make_shared<moveit::core::RobotModel>(rdf_loader.getURDF(), rdf_loader.getSRDF());
     ASSERT_TRUE(bool(robot_model_)) << "Failed to load robot model";
 
     // init ClassLoader
@@ -203,7 +203,7 @@ protected:
   }
 
 public:
-  testing::AssertionResult isNear(const char* expr1, const char* expr2, const char* abs_error_expr,
+  testing::AssertionResult isNear(const char* expr1, const char* expr2, const char* /*abs_error_expr*/,
                                   const geometry_msgs::Point& val1, const geometry_msgs::Point& val2, double abs_error)
   {
     // clang-format off
@@ -218,7 +218,7 @@ public:
         << "Actual: " << expr2 << " [" << val2.x << ", " << val2.y << ", " << val2.z << "]";
     // clang-format on
   }
-  testing::AssertionResult isNear(const char* expr1, const char* expr2, const char* abs_error_expr,
+  testing::AssertionResult isNear(const char* expr1, const char* expr2, const char* /*abs_error_expr*/,
                                   const geometry_msgs::Quaternion& val1, const geometry_msgs::Quaternion& val2,
                                   double abs_error)
   {
@@ -261,7 +261,7 @@ public:
     return testing::AssertionSuccess();
   }
 
-  void searchIKCallback(const geometry_msgs::Pose& ik_pose, const std::vector<double>& joint_state,
+  void searchIKCallback(const geometry_msgs::Pose& /*ik_pose*/, const std::vector<double>& joint_state,
                         moveit_msgs::MoveItErrorCodes& error_code)
   {
     std::vector<std::string> link_names = { tip_link_ };
@@ -280,8 +280,8 @@ public:
   }
 
 public:
-  robot_model::RobotModelPtr robot_model_;
-  robot_model::JointModelGroup* jmg_;
+  moveit::core::RobotModelPtr robot_model_;
+  moveit::core::JointModelGroup* jmg_;
   kinematics::KinematicsBasePtr kinematics_solver_;
   random_numbers::RandomNumberGenerator rng_{ 42 };
   std::string root_link_;
@@ -307,7 +307,7 @@ TEST_F(KinematicsTest, getFK)
 {
   std::vector<double> joints(kinematics_solver_->getJointNames().size(), 0.0);
   const std::vector<std::string>& tip_frames = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   for (unsigned int i = 0; i < num_fk_tests_; ++i)
@@ -331,7 +331,7 @@ TEST_F(KinematicsTest, randomWalkIK)
 {
   std::vector<double> seed, goal, solution;
   const std::vector<std::string>& tip_frames = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   if (!seed_.empty())
@@ -466,7 +466,7 @@ TEST_F(KinematicsTest, unitIK)
 
   std::vector<double> seed, sol;
   const std::vector<std::string>& tip_frames = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   // initial joint pose from seed_ or defaults
@@ -539,7 +539,7 @@ TEST_F(KinematicsTest, searchIK)
   moveit_msgs::MoveItErrorCodes error_code;
   solution.resize(kinematics_solver_->getJointNames().size(), 0.0);
   const std::vector<std::string>& fk_names = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   unsigned int success = 0;
@@ -573,7 +573,7 @@ TEST_F(KinematicsTest, searchIKWithCallback)
   moveit_msgs::MoveItErrorCodes error_code;
   solution.resize(kinematics_solver_->getJointNames().size(), 0.0);
   const std::vector<std::string>& fk_names = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   unsigned int success = 0;
@@ -613,7 +613,7 @@ TEST_F(KinematicsTest, getIK)
   moveit_msgs::MoveItErrorCodes error_code;
   solution.resize(kinematics_solver_->getJointNames().size(), 0.0);
   const std::vector<std::string>& fk_names = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   for (unsigned int i = 0; i < num_ik_tests_; ++i)
@@ -642,7 +642,7 @@ TEST_F(KinematicsTest, getIKMultipleSolutions)
   kinematics::KinematicsResult result;
 
   const std::vector<std::string>& fk_names = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   unsigned int success = 0;
@@ -685,7 +685,7 @@ TEST_F(KinematicsTest, getNearestIKSolution)
   std::vector<double> seed, fk_values, solution;
   moveit_msgs::MoveItErrorCodes error_code;
   const std::vector<std::string>& fk_names = kinematics_solver_->getTipFrames();
-  robot_state::RobotState robot_state(robot_model_);
+  moveit::core::RobotState robot_state(robot_model_);
   robot_state.setToDefaultValues();
 
   for (unsigned int i = 0; i < num_nearest_ik_tests_; ++i)

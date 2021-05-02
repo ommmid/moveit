@@ -34,16 +34,13 @@
 
 /* Author: Sachin Chitta */
 
-#ifndef PR2_ARM_IK_NODE_H
-#define PR2_ARM_IK_NODE_H
+#pragma once
 
 #include <kdl/config.h>
 #include <kdl/frames.hpp>
 #include <kdl/jntarray.hpp>
 #include <kdl/tree.hpp>
 #include <kdl_parser/kdl_parser.hpp>
-
-#include <angles/angles.h>
 
 #include <moveit/macros/class_forward.h>
 #include <moveit_msgs/GetPositionFK.h>
@@ -152,10 +149,10 @@ public:
    * @param ik_seed_state an initial guess solution for the inverse kinematics
    * @return True if a valid solution was found, false otherwise
    */
-  bool getPositionIK(
-      const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state, std::vector<double>& solution,
-      moveit_msgs::MoveItErrorCodes& error_code,
-      const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
+  bool
+  getPositionIK(const geometry_msgs::Pose& ik_pose, const std::vector<double>& ik_seed_state,
+                std::vector<double>& solution, moveit_msgs::MoveItErrorCodes& error_code,
+                const kinematics::KinematicsQueryOptions& options = kinematics::KinematicsQueryOptions()) const override;
 
   /**
    * @brief Given a desired pose of the end-effector, search for the joint angles required to reach it.
@@ -260,6 +257,4 @@ protected:
   void jointSolutionCallback(const KDL::JntArray& jnt_array, const KDL::Frame& ik_pose,
                              moveit_msgs::MoveItErrorCodes& error_code) const;
 };
-}
-
-#endif
+}  // namespace pr2_arm_kinematics

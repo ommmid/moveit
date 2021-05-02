@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVEIT_WAREHOUSE_CONSTRAINTS_STORAGE_
-#define MOVEIT_MOVEIT_WAREHOUSE_CONSTRAINTS_STORAGE_
+#pragma once
 
 #include "moveit/warehouse/moveit_message_storage.h"
 #include <moveit/macros/class_forward.h>
@@ -46,7 +45,7 @@ namespace moveit_warehouse
 typedef warehouse_ros::MessageWithMetadata<moveit_msgs::Constraints>::ConstPtr ConstraintsWithMetadata;
 typedef warehouse_ros::MessageCollection<moveit_msgs::Constraints>::Ptr ConstraintsCollection;
 
-MOVEIT_CLASS_FORWARD(ConstraintsStorage);
+MOVEIT_CLASS_FORWARD(ConstraintsStorage);  // Defines ConstraintsStoragePtr, ConstPtr, WeakPtr... etc
 
 class ConstraintsStorage : public MoveItMessageStorage
 {
@@ -59,8 +58,7 @@ public:
 
   ConstraintsStorage(warehouse_ros::DatabaseConnection::Ptr conn);
 
-  void addConstraints(const moveit_msgs::Constraints& msg, const std::string& robot = "",
-                      const std::string& group = "");
+  void addConstraints(const moveit_msgs::Constraints& msg, const std::string& robot = "", const std::string& group = "");
   bool hasConstraints(const std::string& name, const std::string& robot = "", const std::string& group = "") const;
   void getKnownConstraints(std::vector<std::string>& names, const std::string& robot = "",
                            const std::string& group = "") const;
@@ -83,6 +81,4 @@ private:
 
   ConstraintsCollection constraints_collection_;
 };
-}
-
-#endif
+}  // namespace moveit_warehouse

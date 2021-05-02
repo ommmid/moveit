@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVEIT_SENSOR_MANAGER_
-#define MOVEIT_MOVEIT_SENSOR_MANAGER_
+#pragma once
 
 #include <vector>
 #include <string>
@@ -43,7 +42,7 @@
 #include <moveit_msgs/RobotTrajectory.h>
 #include <geometry_msgs/PointStamped.h>
 
-/// Namespace for the base class of a MoveIt! sensor manager
+/// Namespace for the base class of a MoveIt sensor manager
 namespace moveit_sensor_manager
 {
 /** \brief Define the frame of reference and the frustum of a sensor (usually this is a visual sensor) */
@@ -71,7 +70,7 @@ struct SensorInfo
   double y_angle;
 };
 
-MOVEIT_CLASS_FORWARD(MoveItSensorManager);
+MOVEIT_CLASS_FORWARD(MoveItSensorManager);  // Defines MoveItSensorManagerPtr, ConstPtr, WeakPtr... etc
 
 class MoveItSensorManager
 {
@@ -102,6 +101,4 @@ public:
   virtual bool pointSensorTo(const std::string& name, const geometry_msgs::PointStamped& target,
                              moveit_msgs::RobotTrajectory& sensor_trajectory) = 0;
 };
-}
-
-#endif
+}  // namespace moveit_sensor_manager

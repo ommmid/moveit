@@ -33,12 +33,16 @@
 
 /* Author: Mohamad Ayman */
 
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QMessageBox>
+#include <QComboBox>
 #include <QFormLayout>
-#include <QString>
 #include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QString>
+#include <QVBoxLayout>
 #include "controller_edit_widget.h"
 
 namespace moveit_setup_assistant
@@ -114,10 +118,8 @@ ControllerEditWidget::ControllerEditWidget(QWidget* parent, const MoveItConfigDa
   new_buttons_widget_->setLayout(new_buttons_layout);
   layout->addWidget(new_buttons_widget_);
 
-  // Verticle Spacer -----------------------------------------------------
-  QWidget* vspacer = new QWidget(this);
-  vspacer->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
-  layout->addWidget(vspacer);
+  // Vertical Spacer
+  layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Minimum, QSizePolicy::Expanding));
 
   // Bottom Controls ---------------------------------------------------------
   QHBoxLayout* controls_layout = new QHBoxLayout();
@@ -130,9 +132,7 @@ ControllerEditWidget::ControllerEditWidget(QWidget* parent, const MoveItConfigDa
   controls_layout->setAlignment(btn_delete_, Qt::AlignRight);
 
   // Horizontal Spacer
-  QWidget* spacer = new QWidget(this);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  controls_layout->addWidget(spacer);
+  controls_layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   // Save
   btn_save_ = new QPushButton("&Save", this);
@@ -195,12 +195,12 @@ void ControllerEditWidget::loadControllersTypesComboBox()
     return;
   has_loaded_ = true;
 
-  const std::array<std::string, 9> default_types = {
+  const std::array<std::string, 10> default_types = {
     "effort_controllers/JointTrajectoryController",   "effort_controllers/JointPositionController",
     "effort_controllers/JointVelocityController",     "effort_controllers/JointEffortController",
-    "joint_state_controller/JointStateController",    "position_controllers/JointPositionController",
-    "position_controllers/JointTrajectoryController", "velocity_controllers/JointTrajectoryController",
-    "velocity_controllers/JointvelocityController"
+    "position_controllers/JointPositionController",   "position_controllers/JointTrajectoryController",
+    "velocity_controllers/JointTrajectoryController", "velocity_controllers/JointVelocityController",
+    "pos_vel_controllers/JointTrajectoryController",  "pos_vel_acc_controllers/JointTrajectoryController"
   };
 
   // Remove all old items

@@ -34,30 +34,29 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVE_GROUP_CONTEXT_
-#define MOVEIT_MOVE_GROUP_CONTEXT_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 
 namespace planning_scene_monitor
 {
-MOVEIT_CLASS_FORWARD(PlanningSceneMonitor);
+MOVEIT_CLASS_FORWARD(PlanningSceneMonitor);  // Defines PlanningSceneMonitorPtr, ConstPtr, WeakPtr... etc
 }
 
 namespace planning_pipeline
 {
-MOVEIT_CLASS_FORWARD(PlanningPipeline);
+MOVEIT_CLASS_FORWARD(PlanningPipeline);  // Defines PlanningPipelinePtr, ConstPtr, WeakPtr... etc
 }
 
 namespace plan_execution
 {
-MOVEIT_CLASS_FORWARD(PlanExecution);
-MOVEIT_CLASS_FORWARD(PlanWithSensing);
-}
+MOVEIT_CLASS_FORWARD(PlanExecution);    // Defines PlanExecutionPtr, ConstPtr, WeakPtr... etc
+MOVEIT_CLASS_FORWARD(PlanWithSensing);  // Defines PlanWithSensingPtr, ConstPtr, WeakPtr... etc
+}  // namespace plan_execution
 
 namespace trajectory_execution_manager
 {
-MOVEIT_CLASS_FORWARD(TrajectoryExecutionManager);
+MOVEIT_CLASS_FORWARD(TrajectoryExecutionManager);  // Defines TrajectoryExecutionManagerPtr, ConstPtr, WeakPtr... etc
 }
 
 namespace move_group
@@ -80,6 +79,4 @@ struct MoveGroupContext
   bool allow_trajectory_execution_;
   bool debug_;
 };
-}
-
-#endif
+}  // namespace move_group

@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.1.3)
 project(moveit_commander)
 
 find_package(catkin REQUIRED)
@@ -7,7 +7,8 @@ catkin_python_setup()
 
 catkin_package()
 
-install(PROGRAMS bin/${PROJECT_NAME}_cmdline.py
-        DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+catkin_install_python(
+  PROGRAMS bin/${PROJECT_NAME}_cmdline.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 add_subdirectory(test)

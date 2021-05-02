@@ -56,6 +56,8 @@ namespace ompl_interface
 {
 using namespace moveit_planners_ompl;
 
+constexpr char LOGNAME[] = "ompl_planner_manager";
+
 #define OMPL_ROS_LOG(ros_log_level)                                                                                    \
   {                                                                                                                    \
     ROSCONSOLE_DEFINE_LOCATION(true, ros_log_level, ROSCONSOLE_NAME_PREFIX ".ompl");                                   \
@@ -102,7 +104,7 @@ public:
     ompl::msg::useOutputHandler(output_handler_.get());
   }
 
-  bool initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns) override
+  bool initialize(const moveit::core::RobotModelConstPtr& model, const std::string& ns) override
   {
     if (!ns.empty())
       nh_ = ros::NodeHandle(ns);
@@ -177,7 +179,7 @@ private:
     ROS_INFO_STREAM("Displaying states for context " << pc->getName());
     const og::SimpleSetup &ss = pc->getOMPLSimpleSetup();
     ob::ValidStateSamplerPtr vss = ss.getSpaceInformation()->allocValidStateSampler();
-    robot_state::RobotState robot_state = pc->getPlanningScene()->getCurrentState();
+    moveit::core::RobotState robot_state = pc->getPlanningScene()->getCurrentState();
     ob::ScopedState<> rstate1(ss.getStateSpace());
     ob::ScopedState<> rstate2(ss.getStateSpace());
     ros::WallDuration wait(2);
@@ -191,7 +193,7 @@ private:
         pc->getOMPLStateSpace()->copyToRobotState(robot_state, rstate1.get());
         robot_state.getJointStateGroup(pc->getJointModelGroupName())->updateLinkTransforms();
         moveit_msgs::DisplayRobotState state_msg;
-        robot_state::robotStateToRobotStateMsg(robot_state, state_msg.state);
+        moveit::core::robotStateToRobotStateMsg(robot_state, state_msg.state);
         pub_valid_states_.publish(state_msg);
         n = (n + 1) % 2;
         if (n == 0)
@@ -208,7 +210,7 @@ private:
           msg.model_id = pc->getRobotModel()->getName();
           msg.trajectory.resize(1);
           traj.getRobotTrajectoryMsg(msg.trajectory[0]);
-          robot_state::robotStateToRobotStateMsg(traj.getFirstWayPoint(), msg.trajectory_start);
+          moveit::core::robotStateToRobotStateMsg(traj.getFirstWayPoint(), msg.trajectory_start);
           pub_valid_traj_.publish(msg);
         }
         rstate2 = rstate1;
@@ -224,7 +226,7 @@ private:
     {
       ompl::base::PlannerData pd(pc->getOMPLSimpleSetup()->getSpaceInformation());
       pc->getOMPLSimpleSetup()->getPlannerData(pd);
-      robot_state::RobotState robot_state = planning_scene->getCurrentState();
+      moveit::core::RobotState robot_state = planning_scene->getCurrentState();
       visualization_msgs::MarkerArray arr;
       std_msgs::ColorRGBA color;
       color.r = 1.0f;
@@ -259,19 +261,19 @@ private:
   }
   */
 
-  void dynamicReconfigureCallback(OMPLDynamicReconfigureConfig& config, uint32_t level)
+  void dynamicReconfigureCallback(OMPLDynamicReconfigureConfig& config, uint32_t /*level*/)
   {
     if (config.link_for_exploration_tree.empty() && !planner_data_link_name_.empty())
     {
       pub_markers_.shutdown();
       planner_data_link_name_.clear();
-      ROS_INFO("Not displaying OMPL exploration data structures.");
+      ROS_INFO_NAMED(LOGNAME, "Not displaying OMPL exploration data structures.");
     }
     else if (!config.link_for_exploration_tree.empty() && planner_data_link_name_.empty())
     {
       pub_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("ompl_planner_data_marker_array", 5);
       planner_data_link_name_ = config.link_for_exploration_tree;
-      ROS_INFO("Displaying OMPL exploration data structures for %s", planner_data_link_name_.c_str());
+      ROS_INFO_NAMED(LOGNAME, "Displaying OMPL exploration data structures for %s", planner_data_link_name_.c_str());
     }
 
     ompl_interface_->simplifySolutions(config.simplify_solutions);

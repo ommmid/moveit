@@ -1,42 +1,41 @@
 /*********************************************************************
-*
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2012, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of Willow Garage, Inc. nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*
-* Author: Sachin Chitta
-*********************************************************************/
+ *
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2012, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Willow Garage, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Author: Sachin Chitta
+ *********************************************************************/
 
-#ifndef KINEMATICS_CACHE_H_
-#define KINEMATICS_CACHE_H_
+#pragma once
 
 #include <moveit/kinematics_base/kinematics_base.h>
 #include <moveit/robot_model/robot_model.h>
@@ -103,7 +102,7 @@ public:
    *  @param opt Parameters needed for defining the cache workspace
    *  @return False if any error occured during initialization
    */
-  bool initialize(kinematics::KinematicsBaseConstPtr& solver, const robot_model::RobotModelConstPtr& kinematic_model,
+  bool initialize(kinematics::KinematicsBaseConstPtr& solver, const moveit::core::RobotModelConstPtr& kinematic_model,
                   const KinematicsCache::Options& opt);
 
   /** @brief Return the instance of the kinematics solver */
@@ -113,7 +112,7 @@ public:
   }
 
   /** @brief Return the instance of the kinematics model */
-  const robot_model::RobotModelConstPtr& getModelInstance() const
+  const moveit::core::RobotModelConstPtr& getModelInstance() const
   {
     return kinematic_model_;
   }
@@ -169,11 +168,11 @@ private:
 
   kinematics::KinematicsBaseConstPtr kinematics_solver_; /** An instance of the kinematics solver */
 
-  robot_model::RobotModelConstPtr kinematic_model_; /** An instance of the kinematic model */
-  robot_state::RobotStatePtr kinematic_state_;      /** An instance of the kinematic state */
+  moveit::core::RobotModelConstPtr kinematic_model_; /** An instance of the kinematic model */
+  moveit::core::RobotStatePtr kinematic_state_;      /** An instance of the kinematic state */
 
-  const robot_model::JointModelGroup* joint_model_group_;           /** Joint model group associated with this cache */
-  std::shared_ptr<robot_state::JointStateGroup> joint_state_group_; /** Joint state corresponding to cache */
+  const moveit::core::JointModelGroup* joint_model_group_;           /** Joint model group associated with this cache */
+  std::shared_ptr<moveit::core::JointStateGroup> joint_state_group_; /** Joint state corresponding to cache */
 
   //    mutable std::vector<double> solution_local_; /** Local pre-allocated storage */
 
@@ -181,6 +180,4 @@ private:
 };
 
 typedef std::shared_ptr<KinematicsCache> KinematicsCachePtr;
-}
-
-#endif
+}  // namespace kinematics_cache

@@ -34,8 +34,7 @@
 
 /* Author: Jon Binney, Ioan Sucan */
 
-#ifndef MOVEIT_PERCEPTION_POINTCLOUD_OCTOMAP_UPDATER_
-#define MOVEIT_PERCEPTION_POINTCLOUD_OCTOMAP_UPDATER_
+#pragma once
 
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
@@ -100,6 +99,4 @@ private:
   std::unique_ptr<point_containment_filter::ShapeMask> shape_mask_;
   std::vector<int> mask_;
 };
-}
-
-#endif
+}  // namespace occupancy_map_monitor

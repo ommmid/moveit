@@ -79,9 +79,10 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "save_warehouse_as_text", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-  desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
-                                                                                                        "DB.")(
-      "port", boost::program_options::value<std::size_t>(), "Port for the DB.");
+  desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(),
+                                                  "Host for the "
+                                                  "DB.")("port", boost::program_options::value<std::size_t>(),
+                                                         "Port for the DB.");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -123,7 +124,7 @@ int main(int argc, char** argv)
       fout.close();
 
       std::vector<std::string> robot_state_names;
-      robot_model::RobotModelConstPtr km = psm.getRobotModel();
+      moveit::core::RobotModelConstPtr km = psm.getRobotModel();
       // Get start states for scene
       std::stringstream rsregex;
       rsregex << ".*" << scene_name << ".*";
@@ -150,8 +151,8 @@ int main(int argc, char** argv)
             qfout << robot_state_name << std::endl;
             moveit_warehouse::RobotStateWithMetadata robot_state;
             rss.getRobotState(robot_state, robot_state_name);
-            robot_state::RobotState ks(km);
-            robot_state::robotStateMsgToRobotState(*robot_state, ks, false);
+            moveit::core::RobotState ks(km);
+            moveit::core::robotStateMsgToRobotState(*robot_state, ks, false);
             ks.printStateInfo(qfout);
             qfout << "." << std::endl;
           }

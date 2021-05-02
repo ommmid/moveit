@@ -32,8 +32,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef MOVEIT_COLLISION_PLUGIN_LOADER_COLLISION_PLUGIN_LOADER_H
-#define MOVEIT_COLLISION_PLUGIN_LOADER_COLLISION_PLUGIN_LOADER_H
+#pragma once
 
 #include <ros/ros.h>
 #include <moveit/macros/class_forward.h>
@@ -63,10 +62,8 @@ public:
   bool activate(const std::string& name, const planning_scene::PlanningScenePtr& scene, bool exclusive);
 
 private:
-  MOVEIT_CLASS_FORWARD(CollisionPluginLoaderImpl);
+  MOVEIT_CLASS_FORWARD(CollisionPluginLoaderImpl);  // Defines CollisionPluginLoaderImplPtr, ConstPtr, WeakPtr... etc
   CollisionPluginLoaderImplPtr loader_;
 };
 
 }  // namespace collision_detection
-
-#endif  // MOVEIT_COLLISION_PLUGIN_LOADER_COLLISION_PLUGIN_LOADER_H

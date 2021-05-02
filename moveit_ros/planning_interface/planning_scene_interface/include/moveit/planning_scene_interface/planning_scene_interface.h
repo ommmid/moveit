@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PLANNING_INTERFACE_PLANNING_SCENE_INTERFACE_
-#define MOVEIT_PLANNING_INTERFACE_PLANNING_SCENE_INTERFACE_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/robot_state/robot_state.h>
@@ -48,12 +47,17 @@ namespace moveit
 {
 namespace planning_interface
 {
-MOVEIT_CLASS_FORWARD(PlanningSceneInterface);
+MOVEIT_CLASS_FORWARD(PlanningSceneInterface);  // Defines PlanningSceneInterfacePtr, ConstPtr, WeakPtr... etc
 
 class PlanningSceneInterface
 {
 public:
-  explicit PlanningSceneInterface(const std::string& ns = "");
+  /**
+    \param ns. Namespace in which all MoveIt related topics and services are discovered
+    \param wait. Wait for services if they are not announced in ROS.
+    If this is false, the constructor throws std::runtime_error instead.
+  */
+  explicit PlanningSceneInterface(const std::string& ns = "", bool wait = true);
   ~PlanningSceneInterface();
 
   /**
@@ -144,7 +148,5 @@ private:
   class PlanningSceneInterfaceImpl;
   PlanningSceneInterfaceImpl* impl_;
 };
-}
-}
-
-#endif
+}  // namespace planning_interface
+}  // namespace moveit

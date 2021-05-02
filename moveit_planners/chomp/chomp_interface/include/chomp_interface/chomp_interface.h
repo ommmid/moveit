@@ -34,8 +34,7 @@
 
 /* Author: E. Gil Jones */
 
-#ifndef CHOMP_INTERFACE_CHOMP_INTERFACE_H
-#define CHOMP_INTERFACE_CHOMP_INTERFACE_H
+#pragma once
 
 #include <chomp_motion_planner/chomp_planner.h>
 #include <chomp_motion_planner/chomp_parameters.h>
@@ -43,7 +42,7 @@
 
 namespace chomp_interface
 {
-MOVEIT_CLASS_FORWARD(CHOMPInterface);
+MOVEIT_CLASS_FORWARD(CHOMPInterface);  // Defines CHOMPInterfacePtr, ConstPtr, WeakPtr... etc
 
 class CHOMPInterface : public chomp::ChompPlanner
 {
@@ -63,6 +62,4 @@ protected:
 
   chomp::ChompParameters params_;
 };
-}
-
-#endif
+}  // namespace chomp_interface

@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2008, Willow Garage, Inc.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2008, Willow Garage, Inc.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Martin Pecka */
 
@@ -61,15 +61,15 @@ class TestAABB : public testing::Test
 protected:
   void SetUp() override{};
 
-  robot_state::RobotState loadModel(const std::string& robot_name)
+  moveit::core::RobotState loadModel(const std::string& robot_name)
   {
-    robot_model::RobotModelPtr model = moveit::core::loadTestingRobotModel(robot_name);
+    moveit::core::RobotModelPtr model = moveit::core::loadTestingRobotModel(robot_name);
     return loadModel(model);
   }
 
-  robot_state::RobotState loadModel(const robot_model::RobotModelPtr& model)
+  moveit::core::RobotState loadModel(const moveit::core::RobotModelPtr& model)
   {
-    robot_state::RobotState robot_state = robot_state::RobotState(model);
+    moveit::core::RobotState robot_state = moveit::core::RobotState(model);
     robot_state.setToDefaultValues();
     robot_state.update(true);
 
@@ -85,7 +85,7 @@ TEST_F(TestAABB, TestPR2)
 {
   // Contains a link with mesh geometry that is not centered
 
-  robot_state::RobotState pr2_state = this->loadModel("pr2");
+  moveit::core::RobotState pr2_state = this->loadModel("pr2");
 
   const Eigen::Vector3d& extents_base_footprint = pr2_state.getLinkModel("base_footprint")->getShapeExtentsAtOrigin();
   // values taken from moveit_resources/pr2_description/urdf/robot.xml
@@ -211,7 +211,7 @@ TEST_F(TestAABB, TestPR2)
     msg.scale.z = extents[2];
     msg.color.r = 0;
     msg.color.b = 1;
-    Eigen::Quaterniond q(transform.rotation());
+    Eigen::Quaterniond q(transform.linear());
     msg.pose.orientation.x = q.x();
     msg.pose.orientation.y = q.y();
     msg.pose.orientation.z = q.z();
@@ -257,7 +257,7 @@ TEST_F(TestAABB, TestPR2)
       msg.scale.z = extents[2];
       msg.color.r = 0;
       msg.color.b = 1;
-      Eigen::Quaterniond q(transforms[i].rotation());
+      Eigen::Quaterniond q(transforms[i].linear());
       msg.pose.orientation.x = q.x();
       msg.pose.orientation.y = q.y();
       msg.pose.orientation.z = q.z();
@@ -278,7 +278,7 @@ TEST_F(TestAABB, TestSimple)
   builder.addChain("base_footprint->base_link", "fixed", { origin });
 
   tf2::toMsg(tf2::Vector3(0, 0, 0), origin.position);
-  builder.addCollisionMesh("base_link", "package://moveit_resources/pr2_description/urdf/meshes/base_v0/base_L.stl",
+  builder.addCollisionMesh("base_link", "package://moveit_resources_pr2_description/urdf/meshes/base_v0/base_L.stl",
                            origin);
 
   tf2::toMsg(tf2::Vector3(0, 0, 0.071), origin.position);
@@ -288,7 +288,7 @@ TEST_F(TestAABB, TestSimple)
   builder.addGroup({}, { "world_joint" }, "base");
 
   ASSERT_TRUE(builder.isValid());
-  robot_state::RobotState simple_state = loadModel(builder.build());
+  moveit::core::RobotState simple_state = loadModel(builder.build());
   std::vector<double> simple_aabb;
   simple_state.computeAABB(simple_aabb);
 
@@ -323,7 +323,7 @@ TEST_F(TestAABB, TestComplex)
   builder.addGroup({}, { "world_joint" }, "base");
 
   ASSERT_TRUE(builder.isValid());
-  robot_state::RobotState complex_state = this->loadModel(builder.build());
+  moveit::core::RobotState complex_state = this->loadModel(builder.build());
 
   EXPECT_NEAR(complex_state.getLinkModel("base_footprint")->getShapeExtentsAtOrigin()[0], 0.1, 1e-4);
   EXPECT_NEAR(complex_state.getLinkModel("base_footprint")->getShapeExtentsAtOrigin()[1], 1.0, 1e-4);

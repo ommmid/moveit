@@ -34,8 +34,7 @@
 
 /* Author: Suat Gedikli */
 
-#ifndef MOVEIT_MESH_FILTER_MESH_FILTER_BASE_
-#define MOVEIT_MESH_FILTER_MESH_FILTER_BASE_
+#pragma once
 
 #include <map>
 #include <moveit/macros/class_forward.h>
@@ -43,7 +42,7 @@
 #include <moveit/mesh_filter/sensor_model.h>
 #include <boost/function.hpp>
 #include <boost/thread/mutex.hpp>
-#include <Eigen/Eigen>
+#include <Eigen/Geometry>  // for Isometry3d
 #include <queue>
 
 // forward declarations
@@ -54,8 +53,8 @@ class Mesh;
 
 namespace mesh_filter
 {
-MOVEIT_CLASS_FORWARD(Job);
-MOVEIT_CLASS_FORWARD(GLMesh);
+MOVEIT_CLASS_FORWARD(Job);     // Defines JobPtr, ConstPtr, WeakPtr... etc
+MOVEIT_CLASS_FORWARD(GLMesh);  // Defines GLMeshPtr, ConstPtr, WeakPtr... etc
 
 typedef unsigned int MeshHandle;
 typedef uint32_t LabelType;
@@ -70,11 +69,11 @@ public:
   // this would allow me to do a single comparison instead of 3, in the code i write
   enum
   {
-    Background = 0,
-    Shadow = 1,
-    NearClip = 2,
-    FarClip = 3,
-    FirstLabel = 16
+    BACKGROUND = 0,
+    SHADOW = 1,
+    NEAR_CLIP = 2,
+    FAR_CLIP = 3,
+    FIRST_LABEL = 16
   };
 
 public:
@@ -294,5 +293,3 @@ protected:
   float shadow_threshold_;
 };
 }  // namespace mesh_filter
-
-#endif /* __MESH_FILTER_MESH_FILTER_BASE_H__ */

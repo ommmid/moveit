@@ -36,7 +36,6 @@
 
 #include <ros/ros.h>
 #include <chomp_motion_planner/chomp_trajectory.h>
-#include <iostream>
 
 namespace chomp
 {
@@ -60,8 +59,7 @@ ChompTrajectory::ChompTrajectory(const moveit::core::RobotModelConstPtr& robot_m
   init();
 }
 
-ChompTrajectory::ChompTrajectory(const ChompTrajectory& source_traj, const std::string& group_name,
-                                 int diff_rule_length)
+ChompTrajectory::ChompTrajectory(const ChompTrajectory& source_traj, const std::string& group_name, int diff_rule_length)
   : planning_group_name_(group_name), discretization_(source_traj.discretization_)
 {
   num_joints_ = source_traj.getNumJoints();
@@ -155,7 +153,7 @@ void ChompTrajectory::fillInMinJerk()
 
   // calculate the spline coefficients for each joint:
   // (these are for the special case of zero start and end vel and acc)
-  double coeff[num_joints_][6];
+  std::vector<double[6]> coeff(num_joints_);
   for (size_t i = 0; i < num_joints_; i++)
   {
     double x0 = (*this)(start_index, i);
@@ -197,8 +195,8 @@ bool ChompTrajectory::fillInFromTrajectory(const robot_trajectory::RobotTrajecto
   const size_t max_output_index = getNumPoints() - 1;
   const size_t max_input_index = trajectory.getWayPointCount() - 1;
 
-  const robot_model::JointModelGroup* group = trajectory.getGroup();
-  robot_state::RobotState interpolated(trajectory.getRobotModel());
+  const moveit::core::JointModelGroup* group = trajectory.getGroup();
+  moveit::core::RobotState interpolated(trajectory.getRobotModel());
   for (size_t i = 0; i <= max_output_index; i++)
   {
     double fraction = static_cast<double>(i * max_input_index) / max_output_index;
@@ -211,14 +209,14 @@ bool ChompTrajectory::fillInFromTrajectory(const robot_trajectory::RobotTrajecto
   return true;
 }
 
-void ChompTrajectory::assignCHOMPTrajectoryPointFromRobotState(const robot_state::RobotState& source,
+void ChompTrajectory::assignCHOMPTrajectoryPointFromRobotState(const moveit::core::RobotState& source,
                                                                size_t chomp_trajectory_point_index,
-                                                               const robot_model::JointModelGroup* group)
+                                                               const moveit::core::JointModelGroup* group)
 {
   Eigen::MatrixXd::RowXpr target = getTrajectoryPoint(chomp_trajectory_point_index);
   assert(group->getActiveJointModels().size() == static_cast<size_t>(target.cols()));
   size_t joint_index = 0;
-  for (const robot_state::JointModel* jm : group->getActiveJointModels())
+  for (const moveit::core::JointModel* jm : group->getActiveJointModels())
   {
     assert(jm->getVariableCount() == 1);
     target[joint_index++] = source.getVariablePosition(jm->getFirstVariableIndex());

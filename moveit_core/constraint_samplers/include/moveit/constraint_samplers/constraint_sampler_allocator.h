@@ -34,15 +34,14 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_CONSTRAINT_SAMPLERS_CONSTRAINT_SAMPLER_ALLOCATOR_
-#define MOVEIT_CONSTRAINT_SAMPLERS_CONSTRAINT_SAMPLER_ALLOCATOR_
+#pragma once
 
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <moveit/macros/class_forward.h>
 
 namespace constraint_samplers
 {
-MOVEIT_CLASS_FORWARD(ConstraintSamplerAllocator);
+MOVEIT_CLASS_FORWARD(ConstraintSamplerAllocator);  // Defines ConstraintSamplerAllocatorPtr, ConstPtr, WeakPtr... etc
 
 class ConstraintSamplerAllocator
 {
@@ -61,6 +60,4 @@ public:
   virtual bool canService(const planning_scene::PlanningSceneConstPtr& scene, const std::string& group_name,
                           const moveit_msgs::Constraints& constr) const = 0;
 };
-}
-
-#endif
+}  // namespace constraint_samplers

@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of MoveIt! nor the names of its
+ *   * Neither the name of MoveIt nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -35,16 +35,10 @@
 /* Author: Bryce Willey */
 /** \brief convenience functions and classes used for making simple robot models for testing. */
 
-#ifndef MOVEIT_CORE_UTILS_TEST_
-#define MOVEIT_CORE_UTILS_TEST_
+#pragma once
 
-#include <urdf_parser/urdf_parser.h>
-#include <urdf_model/model.h>
-#include <urdf_model/joint.h>
 #include <srdfdom/srdf_writer.h>
 #include <urdf/model.h>
-#include <fstream>
-#include <boost/filesystem/path.hpp>
 #include <moveit/robot_model/robot_model.h>
 #include <geometry_msgs/Pose.h>
 
@@ -107,14 +101,16 @@ public:
    * the joints will be given this type. To add multiple types of joints, call this method multiple times
    * \param[in] joint_origins The "parent to joint" origins for the joints connecting the links. If not used, all
    * origins will default to the identity transform
+   * \param[in] joint_axis The joint axis specified in the joint frame defaults to (1,0,0)
    */
   void addChain(const std::string& section, const std::string& type,
-                const std::vector<geometry_msgs::Pose>& joint_origins = {});
+                const std::vector<geometry_msgs::Pose>& joint_origins = {},
+                urdf::Vector3 joint_axis = urdf::Vector3(1.0, 0.0, 0.0));
 
   /** \brief Adds a collision mesh to a specific link.
    *  \param[in] link_name The name of the link to which the mesh will be added. Must already be in the builder
    *  \param[in] filename The path to the mesh file, e.g.
-   * "package://moveit_resources/pr2_description/urdf/meshes/base_v0/base_L.stl"
+   * "package://moveit_resources_pr2_description/urdf/meshes/base_v0/base_L.stl"
    *  \param[in] origin The origin pose of this collision mesh relative to the link origin
    */
   void addCollisionMesh(const std::string& link_name, const std::string& filename, geometry_msgs::Pose origin);
@@ -170,6 +166,9 @@ public:
    */
   void addGroup(const std::vector<std::string>& links, const std::vector<std::string>& joints, const std::string& name);
 
+  void addEndEffector(const std::string& name, const std::string& parent_link, const std::string& parent_group = "",
+                      const std::string& component_group = "");
+
   /** \} */
 
   /** \brief Returns true if the building process so far has been valid. */
@@ -194,7 +193,5 @@ private:
   /// Whether the current builder state is valid. If any 'add' method fails, this becomes false.
   bool is_valid_ = true;
 };
-}
-}
-
-#endif
+}  // namespace core
+}  // namespace moveit

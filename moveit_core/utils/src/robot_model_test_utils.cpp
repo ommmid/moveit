@@ -14,7 +14,7 @@
  *     copyright notice, this list of conditions and the following
  *     disclaimer in the documentation and/or other materials provided
  *     with the distribution.
- *   * Neither the name of MoveIt! nor the names of its
+ *   * Neither the name of MoveIt nor the names of its
  *     contributors may be used to endorse or promote products derived
  *     from this software without specific prior written permission.
  *
@@ -39,7 +39,8 @@
 #include <boost/math/constants/constants.hpp>
 #include <geometry_msgs/Pose.h>
 
-#include "moveit/utils/robot_model_test_utils.h"
+#include <urdf_parser/urdf_parser.h>
+#include <moveit/utils/robot_model_test_utils.h>
 #include <ros/package.h>
 
 namespace moveit
@@ -58,15 +59,15 @@ moveit::core::RobotModelPtr loadTestingRobotModel(const std::string& robot_name)
 
 urdf::ModelInterfaceSharedPtr loadModelInterface(const std::string& robot_name)
 {
-  boost::filesystem::path res_path(ros::package::getPath("moveit_resources"));
   std::string urdf_path;
   if (robot_name == "pr2")
   {
-    urdf_path = (res_path / "pr2_description/urdf/robot.xml").string();
+    urdf_path = ros::package::getPath("moveit_resources_pr2_description") + "/urdf/robot.xml";
   }
   else
   {
-    urdf_path = (res_path / (robot_name + "_description") / "urdf" / (robot_name + ".urdf")).string();
+    urdf_path =
+        ros::package::getPath("moveit_resources_" + robot_name + "_description") + "/urdf/" + robot_name + ".urdf";
   }
   urdf::ModelInterfaceSharedPtr urdf_model = urdf::parseURDFFile(urdf_path);
   if (urdf_model == nullptr)
@@ -79,17 +80,17 @@ urdf::ModelInterfaceSharedPtr loadModelInterface(const std::string& robot_name)
 
 srdf::ModelSharedPtr loadSRDFModel(const std::string& robot_name)
 {
-  boost::filesystem::path res_path(ros::package::getPath("moveit_resources"));
   urdf::ModelInterfaceSharedPtr urdf_model = loadModelInterface(robot_name);
   srdf::ModelSharedPtr srdf_model(new srdf::Model());
   std::string srdf_path;
   if (robot_name == "pr2")
   {
-    srdf_path = (res_path / "pr2_description/srdf/robot.xml").string();
+    srdf_path = ros::package::getPath("moveit_resources_pr2_description") + "/srdf/robot.xml";
   }
   else
   {
-    srdf_path = (res_path / (robot_name + "_moveit_config") / "config" / (robot_name + ".srdf")).string();
+    srdf_path =
+        ros::package::getPath("moveit_resources_" + robot_name + "_moveit_config") + "/config/" + robot_name + ".srdf";
   }
   srdf_model->initFile(*urdf_model, srdf_path);
   return srdf_model;
@@ -109,7 +110,7 @@ RobotModelBuilder::RobotModelBuilder(const std::string& name, const std::string&
 }
 
 void RobotModelBuilder::addChain(const std::string& section, const std::string& type,
-                                 const std::vector<geometry_msgs::Pose>& joint_origins)
+                                 const std::vector<geometry_msgs::Pose>& joint_origins, urdf::Vector3 joint_axis)
 {
   std::vector<std::string> link_names;
   boost::split_regex(link_names, section, boost::regex("->"));
@@ -120,14 +121,14 @@ void RobotModelBuilder::addChain(const std::string& section, const std::string& 
     return;
   }
   // First link should already be added.
-  if (not urdf_model_->getLink(link_names[0]))
+  if (!urdf_model_->getLink(link_names[0]))
   {
     ROS_ERROR_NAMED(LOGNAME, "Link %s not present in builder yet!", link_names[0].c_str());
     is_valid_ = false;
     return;
   }
 
-  if (not joint_origins.empty() && link_names.size() - 1 != joint_origins.size())
+  if (!joint_origins.empty() && link_names.size() - 1 != joint_origins.size())
   {
     ROS_ERROR_NAMED(LOGNAME, "There should be one more link (%zu) than there are joint origins (%zu)",
                     link_names.size(), joint_origins.size());
@@ -152,7 +153,7 @@ void RobotModelBuilder::addChain(const std::string& section, const std::string& 
     joint->name = link_names[i - 1] + "-" + link_names[i] + "-joint";
     // Default to Identity transform for origins.
     joint->parent_to_joint_origin_transform.clear();
-    if (not joint_origins.empty())
+    if (!joint_origins.empty())
     {
       geometry_msgs::Pose o = joint_origins[i - 1];
       joint->parent_to_joint_origin_transform.position = urdf::Vector3(o.position.x, o.position.y, o.position.z);
@@ -181,7 +182,7 @@ void RobotModelBuilder::addChain(const std::string& section, const std::string& 
       return;
     }
 
-    joint->axis = urdf::Vector3(1.0, 0.0, 0.0);
+    joint->axis = joint_axis;
     if (joint->type == urdf::Joint::REVOLUTE || joint->type == urdf::Joint::PRISMATIC)
     {
       urdf::JointLimitsSharedPtr limits(new urdf::JointLimits);
@@ -197,7 +198,7 @@ void RobotModelBuilder::addChain(const std::string& section, const std::string& 
 void RobotModelBuilder::addInertial(const std::string& link_name, double mass, geometry_msgs::Pose origin, double ixx,
                                     double ixy, double ixz, double iyy, double iyz, double izz)
 {
-  if (not urdf_model_->getLink(link_name))
+  if (!urdf_model_->getLink(link_name))
   {
     ROS_ERROR_NAMED(LOGNAME, "Link %s not present in builder yet!", link_name.c_str());
     is_valid_ = false;
@@ -260,7 +261,7 @@ void RobotModelBuilder::addCollisionMesh(const std::string& link_name, const std
 void RobotModelBuilder::addLinkCollision(const std::string& link_name, const urdf::CollisionSharedPtr& collision,
                                          geometry_msgs::Pose origin)
 {
-  if (not urdf_model_->getLink(link_name))
+  if (!urdf_model_->getLink(link_name))
   {
     ROS_ERROR_NAMED(LOGNAME, "Link %s not present in builder yet!", link_name.c_str());
     is_valid_ = false;
@@ -278,7 +279,7 @@ void RobotModelBuilder::addLinkCollision(const std::string& link_name, const urd
 void RobotModelBuilder::addLinkVisual(const std::string& link_name, const urdf::VisualSharedPtr& vis,
                                       geometry_msgs::Pose origin)
 {
-  if (not urdf_model_->getLink(link_name))
+  if (!urdf_model_->getLink(link_name))
   {
     ROS_ERROR_NAMED(LOGNAME, "Link %s not present in builder yet!", link_name.c_str());
     is_valid_ = false;
@@ -290,7 +291,7 @@ void RobotModelBuilder::addLinkVisual(const std::string& link_name, const urdf::
 
   urdf::LinkSharedPtr link;
   urdf_model_->getLink(link_name, link);
-  if (not link->visual_array.empty())
+  if (!link->visual_array.empty())
   {
     link->visual_array.push_back(vis);
   }
@@ -320,8 +321,7 @@ void RobotModelBuilder::addVirtualJoint(const std::string& parent_frame, const s
   srdf_writer_->virtual_joints_.push_back(new_virtual_joint);
 }
 
-void RobotModelBuilder::addGroupChain(const std::string& base_link, const std::string& tip_link,
-                                      const std::string& name)
+void RobotModelBuilder::addGroupChain(const std::string& base_link, const std::string& tip_link, const std::string& name)
 {
   srdf::Model::Group new_group;
   if (name.empty())
@@ -340,6 +340,17 @@ void RobotModelBuilder::addGroup(const std::vector<std::string>& links, const st
   new_group.links_ = links;
   new_group.joints_ = joints;
   srdf_writer_->groups_.push_back(new_group);
+}
+
+void RobotModelBuilder::addEndEffector(const std::string& name, const std::string& parent_link,
+                                       const std::string& parent_group, const std::string& component_group)
+{
+  srdf::Model::EndEffector eef;
+  eef.name_ = name;
+  eef.parent_link_ = parent_link;
+  eef.parent_group_ = parent_group;
+  eef.component_group_ = component_group;
+  srdf_writer_->end_effectors_.push_back(eef);
 }
 
 bool RobotModelBuilder::isValid()

@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PLANNING_PIPELINE_PLANNING_PIPELINE_
-#define MOVEIT_PLANNING_PIPELINE_PLANNING_PIPELINE_
+#pragma once
 
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/planning_request_adapter/planning_request_adapter.h>
@@ -76,7 +75,7 @@ public:
       \param adapter_plugins_param_name The name of the ROS parameter under which the names of the request adapter
      plugins are specified (plugin names separated by space; order matters)
   */
-  PlanningPipeline(const robot_model::RobotModelConstPtr& model, const ros::NodeHandle& nh = ros::NodeHandle("~"),
+  PlanningPipeline(const moveit::core::RobotModelConstPtr& model, const ros::NodeHandle& nh = ros::NodeHandle("~"),
                    const std::string& planning_plugin_param_name = "planning_plugin",
                    const std::string& adapter_plugins_param_name = "request_adapters");
 
@@ -86,7 +85,7 @@ public:
       \param planning_plugin_name The name of the planning plugin to load
       \param adapter_plugins_names The names of the planning request adapter plugins to load
   */
-  PlanningPipeline(const robot_model::RobotModelConstPtr& model, const ros::NodeHandle& nh,
+  PlanningPipeline(const moveit::core::RobotModelConstPtr& model, const ros::NodeHandle& nh,
                    const std::string& planning_plugin_name, const std::vector<std::string>& adapter_plugin_names);
 
   /** \brief Pass a flag telling the pipeline whether or not to publish the computed motion plans on DISPLAY_PATH_TOPIC.
@@ -161,7 +160,7 @@ public:
   }
 
   /** \brief Get the robot model that this pipeline is using */
-  const robot_model::RobotModelConstPtr& getRobotModel() const
+  const moveit::core::RobotModelConstPtr& getRobotModel() const
   {
     return robot_model_;
   }
@@ -188,14 +187,12 @@ private:
   std::unique_ptr<planning_request_adapter::PlanningRequestAdapterChain> adapter_chain_;
   std::vector<std::string> adapter_plugin_names_;
 
-  robot_model::RobotModelConstPtr robot_model_;
+  moveit::core::RobotModelConstPtr robot_model_;
 
   /// Flag indicating whether the reported plans should be checked once again, by the planning pipeline itself
   bool check_solution_paths_;
   ros::Publisher contacts_publisher_;
 };
 
-MOVEIT_CLASS_FORWARD(PlanningPipeline);
-}
-
-#endif
+MOVEIT_CLASS_FORWARD(PlanningPipeline);  // Defines PlanningPipelinePtr, ConstPtr, WeakPtr... etc
+}  // namespace planning_pipeline

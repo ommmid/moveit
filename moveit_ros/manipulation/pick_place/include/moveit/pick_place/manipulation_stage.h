@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan, Sachin Chitta */
 
-#ifndef MOVEIT_PICK_PLACE_MANIPULATION_STAGE_
-#define MOVEIT_PICK_PLACE_MANIPULATION_STAGE_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/pick_place/manipulation_plan.h>
@@ -43,7 +42,7 @@
 
 namespace pick_place
 {
-MOVEIT_CLASS_FORWARD(ManipulationStage);
+MOVEIT_CLASS_FORWARD(ManipulationStage);  // Defines ManipulationStagePtr, ConstPtr, WeakPtr... etc
 
 class ManipulationStage
 {
@@ -83,6 +82,4 @@ protected:
   bool signal_stop_;
   bool verbose_;
 };
-}
-
-#endif
+}  // namespace pick_place

@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_OMPL_INTERFACE_PARAMETERIZATION_MODEL_BASED_STATE_SPACE_FACTORY_
-#define MOVEIT_OMPL_INTERFACE_PARAMETERIZATION_MODEL_BASED_STATE_SPACE_FACTORY_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/ompl_interface/parameterization/model_based_state_space.h>
@@ -43,7 +42,7 @@
 
 namespace ompl_interface
 {
-MOVEIT_CLASS_FORWARD(ModelBasedStateSpaceFactory);
+MOVEIT_CLASS_FORWARD(ModelBasedStateSpaceFactory);  // Defines ModelBasedStateSpaceFactoryPtr, ConstPtr, WeakPtr... etc
 
 class ModelBasedStateSpaceFactory
 {
@@ -68,12 +67,10 @@ public:
       request \e req for group \e group. The group \e group must always be specified and takes precedence over \e
      req.group_name, which may be different */
   virtual int canRepresentProblem(const std::string& group, const moveit_msgs::MotionPlanRequest& req,
-                                  const robot_model::RobotModelConstPtr& robot_model) const = 0;
+                                  const moveit::core::RobotModelConstPtr& robot_model) const = 0;
 
 protected:
   virtual ModelBasedStateSpacePtr allocStateSpace(const ModelBasedStateSpaceSpecification& space_spec) const = 0;
   std::string type_;
 };
-}
-
-#endif
+}  // namespace ompl_interface

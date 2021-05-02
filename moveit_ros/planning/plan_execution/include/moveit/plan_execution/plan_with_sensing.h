@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PLAN_EXECUTION_PLAN_WITH_SENSING_
-#define MOVEIT_PLAN_EXECUTION_PLAN_WITH_SENSING_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/plan_execution/plan_representation.h>
@@ -49,7 +48,7 @@
 
 namespace plan_execution
 {
-MOVEIT_CLASS_FORWARD(PlanWithSensing);
+MOVEIT_CLASS_FORWARD(PlanWithSensing);  // Defines PlanWithSensingPtr, ConstPtr, WeakPtr... etc
 
 class PlanWithSensing
 {
@@ -134,5 +133,4 @@ private:
   class DynamicReconfigureImpl;
   DynamicReconfigureImpl* reconfigure_impl_;
 };
-}
-#endif
+}  // namespace plan_execution

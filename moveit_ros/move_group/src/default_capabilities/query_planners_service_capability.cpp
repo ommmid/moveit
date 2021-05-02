@@ -55,7 +55,7 @@ void MoveGroupQueryPlannersService::initialize()
                                                     &MoveGroupQueryPlannersService::setParams, this);
 }
 
-bool MoveGroupQueryPlannersService::queryInterface(moveit_msgs::QueryPlannerInterfaces::Request& req,
+bool MoveGroupQueryPlannersService::queryInterface(moveit_msgs::QueryPlannerInterfaces::Request& /*req*/,
                                                    moveit_msgs::QueryPlannerInterfaces::Response& res)
 {
   const planning_interface::PlannerManagerPtr& planner_interface = context_->planning_pipeline_->getPlannerManager();
@@ -93,17 +93,17 @@ bool MoveGroupQueryPlannersService::getParams(moveit_msgs::GetPlannerParams::Req
         config.insert(it->second.config.begin(), it->second.config.end());
     }
 
-    for (std::map<std::string, std::string>::const_iterator it = config.begin(), end = config.end(); it != end; ++it)
+    for (const auto& key_value_pair : config)
     {
-      res.params.keys.push_back(it->first);
-      res.params.values.push_back(it->second);
+      res.params.keys.push_back(key_value_pair.first);
+      res.params.values.push_back(key_value_pair.second);
     }
   }
   return true;
 }
 
 bool MoveGroupQueryPlannersService::setParams(moveit_msgs::SetPlannerParams::Request& req,
-                                              moveit_msgs::SetPlannerParams::Response& res)
+                                              moveit_msgs::SetPlannerParams::Response& /*res*/)
 {
   const planning_interface::PlannerManagerPtr& planner_interface = context_->planning_pipeline_->getPlannerManager();
   if (req.params.keys.size() != req.params.values.size())

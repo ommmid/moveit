@@ -1,33 +1,60 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.1.3)
 project(moveit_core)
 
-add_compile_options(-std=c++14)
+if(NOT "${CMAKE_CXX_STANDARD}")
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Warnings
-add_compile_options(-Wall -Wextra
-  -Wwrite-strings -Wunreachable-code -Wpointer-arith -Wredundant-decls -Wcast-qual
-  -Wno-unused-parameter -Wno-unused-function)
+if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  # Enable warnings
+  add_compile_options(-Wall -Wextra
+    -Wwrite-strings -Wunreachable-code -Wpointer-arith -Wredundant-decls -Wcast-qual
+    -Wno-unused-parameter -Wno-unused-function)
+endif()
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   # This too often has false-positives
   add_compile_options(-Wno-maybe-uninitialized)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   message("${PROJECT_NAME}: You did not request a specific build type: Choosing 'Release' for maximum performance")
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(Boost REQUIRED system filesystem date_time thread iostreams)
+# boost::iostreams on Windows depends on boost::zlib
+if(WIN32)
+  set(EXTRA_BOOST_COMPONENTS zlib)
+endif()
+find_package(Boost REQUIRED system filesystem date_time thread iostreams regex ${EXTRA_BOOST_COMPONENTS})
 find_package(Eigen3 REQUIRED)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
+
+# TODO: Move collision detection into separate packages
+find_package(Bullet 2.87)
+
+# TODO(j-petit): Version check can be dropped when Xenial reaches end-of-life
+if(BULLET_FOUND)
+  set(BULLET_ENABLE "BULLET")
+  set(BULLET_LIB "moveit_collision_detection_bullet")
+  set(BULLET_INC "collision_detection_bullet/include")
+  message(STATUS "Compiling with Bullet")
+else()
+  message(STATUS "Version of Bullet too old or not available: disabling Bullet collision detection plugin. Try using Ubuntu 18.04 or later.")
+endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBFCL_PC REQUIRED fcl)
-# find *absolute* paths to LIBFCL_INCLUDE_DIRS and LIBFCL_LIBRARIES
-find_path(LIBFCL_INCLUDE_DIRS fcl/config.h HINTS ${LIBFCL_PC_INCLUDE_DIR} ${LIBFCL_PC_INCLUDE_DIRS})
-find_library(LIBFCL_LIBRARIES fcl HINTS ${LIBFCL_PC_LIBRARY_DIRS})
+set(LIBFCL_INCLUDE_DIRS ${LIBFCL_PC_INCLUDE_DIRS})
+# find *absolute* paths to LIBFCL_LIBRARIES
+set(LIBFCL_LIBRARIES)
+foreach(_lib ${LIBFCL_PC_LIBRARIES})
+  find_library(_lib_${_lib} ${_lib} HINTS ${LIBFCL_PC_LIBRARY_DIRS})
+  list(APPEND LIBFCL_LIBRARIES ${_lib_${_lib}})
+endforeach()
 
 find_package(octomap REQUIRED)
 find_package(urdfdom REQUIRED)
@@ -38,6 +65,7 @@ COMPONENTS
   tf2_eigen
   tf2_geometry_msgs
   eigen_stl_containers
+  eigen_conversions
   geometric_shapes
   geometry_msgs
   kdl_parser
@@ -70,6 +98,7 @@ set(THIS_PACKAGE_INCLUDE_DIRS
     backtrace/include
     collision_detection/include
     collision_detection_fcl/include
+    ${BULLET_INC}
     constraint_samplers/include
     controller_manager/include
     distance_field/include
@@ -106,6 +135,7 @@ catkin_package(
     moveit_planning_interface
     moveit_collision_detection
     moveit_collision_detection_fcl
+    ${BULLET_LIB}
     moveit_kinematic_constraints
     moveit_planning_scene
     moveit_constraint_samplers
@@ -142,31 +172,22 @@ catkin_package(
     OCTOMAP
     urdfdom
     urdfdom_headers
+    ${BULLET_ENABLE}
     )
 
-
-# to run: catkin_make -DENABLE_COVERAGE_TESTING=ON package_name_coverage
-if(CATKIN_ENABLE_TESTING AND ENABLE_COVERAGE_TESTING)
-  find_package(code_coverage REQUIRED)   # catkin package ros-*-code-coverage
-  include(CodeCoverage)
-  APPEND_COVERAGE_COMPILER_FLAGS()
-  set(COVERAGE_EXCLUDES "*/test/*")
-  add_code_coverage(NAME ${PROJECT_NAME}_coverage)
-endif()
-
-include_directories(SYSTEM ${EIGEN3_INCLUDE_DIRS}
+include_directories(SYSTEM ${catkin_INCLUDE_DIRS}
+                           ${Boost_INCLUDE_DIRS}
+                           ${EIGEN3_INCLUDE_DIRS}
+                           ${urdfdom_INCLUDE_DIRS}
+                           ${urdfdom_headers_INCLUDE_DIRS}
                            ${LIBFCL_INCLUDE_DIRS}
-                           )
+                           ${BULLET_INCLUDE_DIRS}
+                           ${OCTOMAP_INCLUDE_DIRS}
+                    )
 
 #catkin_lint: ignore_once external_directory  (${VERSION_FILE_PATH})
 include_directories(${THIS_PACKAGE_INCLUDE_DIRS}
-                    ${VERSION_FILE_PATH}
-                    ${Boost_INCLUDE_DIRS}
-                    ${catkin_INCLUDE_DIRS}
-                    ${urdfdom_INCLUDE_DIRS}
-                    ${urdfdom_headers_INCLUDE_DIRS}
-                    ${OCTOMAP_INCLUDE_DIRS}
-                    )
+                    ${VERSION_FILE_PATH})
 
 # Generate and install version.h
 string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" MOVEIT_VERSION_MAJOR "${${PROJECT_NAME}_VERSION}")
@@ -174,7 +195,7 @@ string(REGEX REPLACE "^[0-9]+\\.([0-9]+).*" "\\1" MOVEIT_VERSION_MINOR "${${PROJ
 string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" MOVEIT_VERSION_PATCH "${${PROJECT_NAME}_VERSION}")
 set(MOVEIT_VERSION_EXTRA "Alpha")
 set(MOVEIT_VERSION "${MOVEIT_VERSION_MAJOR}.${MOVEIT_VERSION_MINOR}.${MOVEIT_VERSION_PATCH}-${MOVEIT_VERSION_EXTRA}")
-message(STATUS " *** Building MoveIt! ${MOVEIT_VERSION} ***")
+message(STATUS " *** Building MoveIt ${MOVEIT_VERSION} ***")
 configure_file("version/version.h.in" "${VERSION_FILE_PATH}/moveit/version.h")
 #catkin_lint: ignore_once external_file
 install(FILES "${VERSION_FILE_PATH}/moveit/version.h" DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}/moveit)
@@ -205,3 +226,9 @@ add_subdirectory(distance_field)
 add_subdirectory(collision_distance_field)
 add_subdirectory(kinematics_metrics)
 add_subdirectory(dynamics_solver)
+
+if(BULLET_ENABLE)
+  add_subdirectory(collision_detection_bullet)
+else()
+  install(FILES collision_detection_bullet/empty_description.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION} RENAME collision_detector_bullet_description.xml)
+endif()

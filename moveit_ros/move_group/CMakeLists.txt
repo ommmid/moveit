@@ -1,7 +1,11 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.1.3)
 project(moveit_ros_move_group)
 
-add_compile_options(-std=c++14)
+if(NOT "${CMAKE_CXX_STANDARD}")
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -26,13 +30,17 @@ catkin_package(
   INCLUDE_DIRS
     include
   CATKIN_DEPENDS
+    actionlib
     moveit_core
     moveit_ros_planning
+    roscpp
+    std_srvs
     tf2_geometry_msgs
 )
 
 include_directories(include)
-include_directories(${catkin_INCLUDE_DIRS}
+include_directories(SYSTEM
+                    ${catkin_INCLUDE_DIRS}
                     ${Boost_INCLUDE_DIRS})
 
 add_library(moveit_move_group_capabilities_base
@@ -57,6 +65,7 @@ add_library(moveit_move_group_default_capabilities
   src/default_capabilities/get_planning_scene_service_capability.cpp
   src/default_capabilities/apply_planning_scene_service_capability.cpp
   src/default_capabilities/clear_octomap_service_capability.cpp
+  src/default_capabilities/tf_publisher_capability.cpp
   )
 set_target_properties(moveit_move_group_default_capabilities PROPERTIES VERSION "${${PROJECT_NAME}_VERSION}")
 add_dependencies(moveit_move_group_default_capabilities ${catkin_EXPORTED_TARGETS})
@@ -66,10 +75,13 @@ target_link_libraries(move_group moveit_move_group_capabilities_base ${catkin_LI
 target_link_libraries(moveit_move_group_default_capabilities moveit_move_group_capabilities_base ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 target_link_libraries(list_move_group_capabilities ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 
-install(TARGETS move_group list_move_group_capabilities moveit_move_group_capabilities_base moveit_move_group_default_capabilities
+install(TARGETS move_group list_move_group_capabilities
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
+install(TARGETS moveit_move_group_capabilities_base moveit_move_group_default_capabilities
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
 
 install(DIRECTORY include/ DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION})
 
@@ -85,4 +97,5 @@ if(CATKIN_ENABLE_TESTING)
   find_package(rostest REQUIRED)
   # this test is flaky
   # add_rostest(test/test_cancel_before_plan_execution.test)
+  add_rostest(test/test_check_state_validity_in_empty_scene.test)
 endif()

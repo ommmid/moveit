@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_FRAME_
-#define MOVEIT_MOTION_PLANNING_RVIZ_PLUGIN_MOTION_PLANNING_FRAME_
+#pragma once
 
 #include <QWidget>
 #include <QTreeWidgetItem>
@@ -44,7 +43,6 @@
 #ifndef Q_MOC_RUN
 #include <moveit/macros/class_forward.h>
 #include <moveit/move_group_interface/move_group_interface.h>
-#include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit/robot_interaction/robot_interaction.h>
 #include <moveit/robot_interaction/interaction_handler.h>
@@ -75,14 +73,15 @@ class MotionPlanningUI;
 
 namespace moveit_warehouse
 {
-MOVEIT_CLASS_FORWARD(PlanningSceneStorage);
-MOVEIT_CLASS_FORWARD(ConstraintsStorage);
-MOVEIT_CLASS_FORWARD(RobotStateStorage);
-}
+MOVEIT_CLASS_FORWARD(PlanningSceneStorage);  // Defines PlanningSceneStoragePtr, ConstPtr, WeakPtr... etc
+MOVEIT_CLASS_FORWARD(ConstraintsStorage);    // Defines ConstraintsStoragePtr, ConstPtr, WeakPtr... etc
+MOVEIT_CLASS_FORWARD(RobotStateStorage);     // Defines RobotStateStoragePtr, ConstPtr, WeakPtr... etc
+}  // namespace moveit_warehouse
 
 namespace moveit_rviz_plugin
 {
 class MotionPlanningDisplay;
+class MotionPlanningFrameJointsWidget;
 
 const std::string OBJECT_RECOGNITION_ACTION = "/recognize_objects";
 
@@ -94,6 +93,8 @@ static const std::string TAB_SCENES = "Stored Scenes";
 static const std::string TAB_STATES = "Stored States";
 static const std::string TAB_STATUS = "Status";
 
+static const double LARGE_MESH_THRESHOLD = 10.0;
+
 class MotionPlanningFrame : public QWidget
 {
   friend class MotionPlanningDisplay;
@@ -101,7 +102,7 @@ class MotionPlanningFrame : public QWidget
 
 public:
   MotionPlanningFrame(const MotionPlanningFrame&) = delete;
-  MotionPlanningFrame(MotionPlanningDisplay* pdisplay, rviz::DisplayContext* context, QWidget* parent = 0);
+  MotionPlanningFrame(MotionPlanningDisplay* pdisplay, rviz::DisplayContext* context, QWidget* parent = nullptr);
   ~MotionPlanningFrame() override;
 
   void changePlanningGroup();
@@ -122,9 +123,9 @@ protected:
   MotionPlanningDisplay* planning_display_;
   rviz::DisplayContext* context_;
   Ui::MotionPlanningUI* ui_;
+  MotionPlanningFrameJointsWidget* joints_tab_;
 
   moveit::planning_interface::MoveGroupInterfacePtr move_group_;
-  moveit::planning_interface::PlanningSceneInterfacePtr planning_scene_interface_;
   moveit::semantic_world::SemanticWorldPtr semantic_world_;
 
   moveit::planning_interface::MoveGroupInterface::PlanPtr current_plan_;
@@ -140,12 +141,12 @@ protected:
 
 Q_SIGNALS:
   void planningFinished();
+  void configChanged();
 
 private Q_SLOTS:
 
   // Context tab
   void databaseConnectButtonClicked();
-  void publishSceneButtonClicked();
   void planningAlgorithmIndexChanged(int index);
   void resetDbButtonClicked();
   void approximateIKChanged(int state);
@@ -161,26 +162,31 @@ private Q_SLOTS:
   void allowLookingToggled(bool checked);
   void allowExternalProgramCommunication(bool enable);
   void pathConstraintsIndexChanged(int index);
+  void onNewPlanningSceneState();
   void startStateTextChanged(const QString& start_state);
   void goalStateTextChanged(const QString& goal_state);
   void planningGroupTextChanged(const QString& planning_group);
   void onClearOctomapClicked();
 
   // Scene Objects tab
-  void importFileButtonClicked();
-  void importUrlButtonClicked();
-  void clearSceneButtonClicked();
+  void clearScene();
+  void publishScene();
+  void publishSceneIfNeeded();
+  void setLocalSceneEdited(bool dirty = true);
+  bool isLocalSceneDirty() const;
   void sceneScaleChanged(int value);
   void sceneScaleStartChange();
   void sceneScaleEndChange();
-  void removeObjectButtonClicked();
+  void shapesComboBoxChanged(const QString& text);
+  void addSceneObject();
+  void removeSceneObject();
   void selectedCollisionObjectChanged();
   void objectPoseValueChanged(double value);
   void collisionObjectChanged(QListWidgetItem* item);
   void imProcessFeedback(visualization_msgs::InteractiveMarkerFeedback& feedback);
   void copySelectedCollisionObject();
-  void exportAsTextButtonClicked();
-  void importFromTextButtonClicked();
+  void exportGeometryAsTextButtonClicked();
+  void importGeometryFromTextButtonClicked();
 
   // Stored scenes tab
   void saveSceneButtonClicked();
@@ -230,22 +236,22 @@ private:
   void populateConstraintsList(const std::vector<std::string>& constr);
   void configureForPlanning();
   void configureWorkspace();
-  void updateQueryStateHelper(robot_state::RobotState& state, const std::string& v);
+  void updateQueryStateHelper(moveit::core::RobotState& state, const std::string& v);
   void fillStateSelectionOptions();
   void fillPlanningGroupOptions();
   void startStateTextChangedExec(const std::string& start_state);
   void goalStateTextChangedExec(const std::string& goal_state);
 
   // Scene objects tab
-  void addObject(const collision_detection::WorldPtr& world, const std::string& id, const shapes::ShapeConstPtr& shape,
-                 const Eigen::Isometry3d& pose);
   void updateCollisionObjectPose(bool update_marker_position);
   void createSceneInteractiveMarker();
   void renameCollisionObject(QListWidgetItem* item);
   void attachDetachCollisionObject(QListWidgetItem* item);
   void populateCollisionObjectsList();
-  void computeImportFromText(const std::string& path);
-  void computeExportAsText(const std::string& path);
+  void computeImportGeometryFromText(const std::string& path);
+  void computeExportGeometryAsText(const std::string& path);
+  visualization_msgs::InteractiveMarker
+  createObjectMarkerMsg(const collision_detection::CollisionEnv::ObjectConstPtr& obj);
 
   // Stored scenes tab
   void computeSaveSceneButtonClicked();
@@ -259,12 +265,12 @@ private:
   void checkPlanningSceneTreeEnabledButtons();
 
   // States tab
-  void saveRobotStateButtonClicked(const robot_state::RobotState& state);
+  void saveRobotStateButtonClicked(const moveit::core::RobotState& state);
   void populateRobotStatesList();
 
   // Pick and place
   void processDetectedObjects();
-  void updateDetectedObjectsList(const std::vector<std::string>& object_ids, const std::vector<std::string>& objects);
+  void updateDetectedObjectsList(const std::vector<std::string>& object_ids);
   void publishTables();
   void updateSupportSurfacesList();
   ros::Publisher object_recognition_trigger_publisher_;
@@ -297,7 +303,7 @@ private:
   ros::Subscriber update_custom_goal_state_subscriber_;
   // General
   void changePlanningGroupHelper();
-  void importResource(const std::string& path);
+  shapes::ShapePtr loadMeshResource(const std::string& url);
   void loadStoredStates(const std::string& pattern);
 
   void remotePlanCallback(const std_msgs::EmptyConstPtr& msg);
@@ -315,7 +321,7 @@ private:
   ros::Publisher planning_scene_publisher_;
   ros::Publisher planning_scene_world_publisher_;
 
-  collision_detection::CollisionWorld::ObjectConstPtr scaled_object_;
+  collision_detection::CollisionEnv::ObjectConstPtr scaled_object_;
 
   std::vector<std::pair<std::string, bool> > known_collision_objects_;
   long unsigned int known_collision_objects_version_;
@@ -364,6 +370,4 @@ void MotionPlanningFrame::waitForAction(const T& action, const ros::NodeHandle& 
   else
     ROS_DEBUG("Connected to '%s'", name.c_str());
 };
-}
-
-#endif
+}  // namespace moveit_rviz_plugin

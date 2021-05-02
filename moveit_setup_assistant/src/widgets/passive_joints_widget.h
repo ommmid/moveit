@@ -34,31 +34,18 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_PASSIVE_JOINTS_WIDGET_
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_PASSIVE_JOINTS_WIDGET_
-
-// Qt
-#include <QWidget>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QLabel>
-#include <QPushButton>
-#include <QTableWidget>
-#include <QStackedLayout>
-#include <QString>
-#include <QComboBox>
+#pragma once
 
 // SA
 #ifndef Q_MOC_RUN
 #include <moveit/setup_assistant/tools/moveit_config_data.h>
 #endif
 
-#include "header_widget.h"
-#include "double_list_widget.h"
 #include "setup_screen_widget.h"  // a base class for screens in the setup assistant
 
 namespace moveit_setup_assistant
 {
+class DoubleListWidget;
 class PassiveJointsWidget : public SetupScreenWidget
 {
   Q_OBJECT
@@ -87,7 +74,7 @@ private Q_SLOTS:
   void selectionUpdated();
 
   /// Called from Double List widget to highlight joints
-  void previewSelectedJoints(std::vector<std::string> joints);
+  void previewSelectedJoints(const std::vector<std::string>& joints);
 
 private:
   // ******************************************************************************************
@@ -101,6 +88,4 @@ private:
   std::string current_edit_vjoint_;
 };
 
-}  // namespace
-
-#endif
+}  // namespace moveit_setup_assistant

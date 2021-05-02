@@ -34,8 +34,7 @@
 
 /* Author: Mrinal Kalakrishnan */
 
-#ifndef CHOMP_TRAJECTORY_H_
-#define CHOMP_TRAJECTORY_H_
+#pragma once
 
 #include <trajectory_msgs/JointTrajectory.h>
 #include <moveit/robot_model/robot_model.h>
@@ -295,11 +294,11 @@ template <typename Derived>
 void ChompTrajectory::getJointVelocities(size_t traj_point, Eigen::MatrixBase<Derived>& velocities)
 {
   velocities.setZero();
-  double invTime = 1.0 / discretization_;
+  double inv_time = 1.0 / discretization_;
 
   for (int k = -DIFF_RULE_LENGTH / 2; k <= DIFF_RULE_LENGTH / 2; k++)
   {
-    velocities += (invTime * DIFF_RULES[0][k + DIFF_RULE_LENGTH / 2]) * trajectory_.row(traj_point + k).transpose();
+    velocities += (inv_time * DIFF_RULES[0][k + DIFF_RULE_LENGTH / 2]) * trajectory_.row(traj_point + k).transpose();
   }
 }
 
@@ -307,6 +306,4 @@ inline double ChompTrajectory::getDuration() const
 {
   return duration_;
 }
-}
-
-#endif /* CHOMP_TRAJECTORY_H_ */
+}  // namespace chomp

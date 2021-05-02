@@ -55,9 +55,10 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "initialize_demo_db", ros::init_options::AnonymousName);
 
   boost::program_options::options_description desc;
-  desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(), "Host for the "
-                                                                                                        "DB.")(
-      "port", boost::program_options::value<std::size_t>(), "Port for the DB.");
+  desc.add_options()("help", "Show help message")("host", boost::program_options::value<std::string>(),
+                                                  "Host for the "
+                                                  "DB.")("port", boost::program_options::value<std::size_t>(),
+                                                         "Port for the DB.");
 
   boost::program_options::variables_map vm;
   boost::program_options::store(boost::program_options::parse_command_line(argc, argv, desc), vm);
@@ -101,14 +102,14 @@ int main(int argc, char** argv)
   ROS_INFO("Added default scene: '%s'", psmsg.name.c_str());
 
   moveit_msgs::RobotState rsmsg;
-  robot_state::robotStateToRobotStateMsg(psm.getPlanningScene()->getCurrentState(), rsmsg);
+  moveit::core::robotStateToRobotStateMsg(psm.getPlanningScene()->getCurrentState(), rsmsg);
   rs.addRobotState(rsmsg, "default");
   ROS_INFO("Added default state");
 
   const std::vector<std::string>& gnames = psm.getRobotModel()->getJointModelGroupNames();
   for (const std::string& gname : gnames)
   {
-    const robot_model::JointModelGroup* jmg = psm.getRobotModel()->getJointModelGroup(gname);
+    const moveit::core::JointModelGroup* jmg = psm.getRobotModel()->getJointModelGroup(gname);
     if (!jmg->isChain())
       continue;
     const std::vector<std::string>& lnames = jmg->getLinkModelNames();
@@ -132,7 +133,7 @@ int main(int argc, char** argv)
     cs.addConstraints(cmsg, psm.getRobotModel()->getName(), jmg->getName());
     ROS_INFO("Added default constraint: '%s'", cmsg.name.c_str());
   }
-  ROS_INFO("Default MoveIt! Warehouse was reset.");
+  ROS_INFO("Default MoveIt Warehouse was reset.");
 
   ros::shutdown();
 

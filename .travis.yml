@@ -1,6 +1,6 @@
 # This config file for Travis CI utilizes https://github.com/ros-planning/moveit_ci/ package.
-sudo: required
-dist: xenial  # distro used by Travis, moveit_ci uses the docker image's distro
+os: linux
+dist: bionic  # distro used by Travis, moveit_ci uses the docker image's distro
 services:
   - docker
 language: cpp
@@ -8,32 +8,33 @@ cache: ccache
 compiler: gcc
 
 notifications:
-  email:
-    recipients:
-      - 130s@2000.jukuin.keio.ac.jp
+  email: true
+
 env:
   global:
     - MOVEIT_CI_TRAVIS_TIMEOUT=85  # Travis grants us 90 min, but we add a safety margin of 5 min
-    - ROS_DISTRO=melodic
-    - ROS_REPO=ros
+    - ROS_DISTRO=noetic
+    - ROS_REPO=ros-testing
     - UPSTREAM_WORKSPACE=moveit.rosinstall
-    # moveit_ros_perception: mesh_filter_test fails due to broken Mesa OpenGL
-    - TEST_BLACKLIST="moveit_ros_perception"
-    - CXXFLAGS="-Wall -Wextra -Wwrite-strings -Wunreachable-code -Wpointer-arith -Wredundant-decls -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-unused-function"
+    - CXXFLAGS="-Wall -Wextra -Wwrite-strings -Wunreachable-code -Wpointer-arith -Wredundant-decls"
     - WARNINGS_OK=false
-  matrix:
-    - TEST="clang-format catkin_lint"
-    - ROS_DISTRO=melodic
-    - ROS_DISTRO=kinetic
 
-matrix: # Add a separate config to the matrix, using clang as compiler
+jobs:
+  fast_finish: true
   include:
-    # add a config to the matrix using clang as compiler and also test ikfast plugin creation
+    - env: TEST="clang-format catkin_lint"
+    - env: TEST=code-coverage
+    - env: ROS_DISTRO=noetic ROS_REPO=ros-testing
+    - env: ROS_DISTRO=melodic BEFORE_DOCKER_SCRIPT="source moveit_kinematics/test/test_ikfast_plugins.sh"
     - compiler: clang
-      env: ROS_REPO=ros-shadow-fixed
-           TEST=clang-tidy-fix
+      # test_ikfast_plugins takes ~10 minutes: include here to keep the main jobs shorter
+      env: TEST=clang-tidy-fix
            BEFORE_DOCKER_SCRIPT="source moveit_kinematics/test/test_ikfast_plugins.sh"
-           CXXFLAGS="-Wall -Wextra -Wwrite-strings -Wunreachable-code -Wpointer-arith -Wredundant-decls -Wno-unused-parameter -Wno-unused-function -Wno-overloaded-virtual"
+           CXXFLAGS="-Wall -Wextra -Wwrite-strings -Wunreachable-code -Wpointer-arith -Wredundant-decls -Wno-overloaded-virtual"
+    - if: branch =~ /^(.*-devel|master)$/
+      env: ROS_REPO=ros-shadow-fixed
+  allow_failures:
+    - env: TEST=code-coverage
 
 before_script:
   - git clone -q --depth=1 https://github.com/ros-planning/moveit_ci.git .moveit_ci

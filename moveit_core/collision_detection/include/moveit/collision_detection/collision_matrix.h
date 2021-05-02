@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan, E. Gil Jones */
 
-#ifndef MOVEIT_COLLISION_DETECTION_COLLISION_MATRIX_
-#define MOVEIT_COLLISION_DETECTION_COLLISION_MATRIX_
+#pragma once
 
 #include <moveit/collision_detection/collision_common.h>
 #include <moveit/macros/class_forward.h>
@@ -66,13 +65,13 @@ enum Type
       imply that the two bodies are in collision*/
   CONDITIONAL
 };
-}
+}  // namespace AllowedCollision
 
 /** \brief Signature of predicate that decides whether a contact is allowed or not (when AllowedCollision::Type is
  * CONDITIONAL) */
-typedef boost::function<bool(collision_detection::Contact&)> DecideContactFn;
+using DecideContactFn = boost::function<bool(collision_detection::Contact&)>;
 
-MOVEIT_CLASS_FORWARD(AllowedCollisionMatrix);
+MOVEIT_CLASS_FORWARD(AllowedCollisionMatrix);  // Defines AllowedCollisionMatrixPtr, ConstPtr, WeakPtr... etc
 
 /** @class AllowedCollisionMatrix
  *  @brief Definition of a structure for the allowed collision matrix. All elements in the collision world are referred
@@ -93,7 +92,7 @@ public:
   AllowedCollisionMatrix(const moveit_msgs::AllowedCollisionMatrix& msg);
 
   /** @brief Copy constructor */
-  AllowedCollisionMatrix(const AllowedCollisionMatrix& acm);
+  AllowedCollisionMatrix(const AllowedCollisionMatrix& acm) = default;
 
   /** @brief Get the type of the allowed collision between two elements. Return true if the entry is included in the
    * collision matrix.
@@ -277,6 +276,4 @@ private:
   std::map<std::string, AllowedCollision::Type> default_entries_;
   std::map<std::string, DecideContactFn> default_allowed_contacts_;
 };
-}
-
-#endif
+}  // namespace collision_detection

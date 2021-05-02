@@ -1,12 +1,12 @@
 <package format="2">
   <name>moveit_planners_ompl</name>
-  <version>1.0.1</version>
-  <description>MoveIt! interface to OMPL</description>
+  <version>1.1.1</version>
+  <description>MoveIt interface to OMPL</description>
 
   <author email="isucan@google.com">Ioan Sucan</author>
 
   <maintainer email="dave@picknik.ai">Dave Coleman</maintainer>
-  <maintainer email="moveit_releasers@googlegroups.com">MoveIt! Release Team</maintainer>
+  <maintainer email="moveit_releasers@googlegroups.com">MoveIt Release Team</maintainer>
 
   <license>BSD</license>
 
@@ -25,8 +25,12 @@
   <depend>tf2_ros</depend>
   <depend version_gte="1.11.2">pluginlib</depend>
 
-  <test_depend>moveit_resources</test_depend>
+  <test_depend>moveit_resources_pr2_description</test_depend>
+  <test_depend>moveit_resources_fanuc_description</test_depend>
+  <test_depend>moveit_resources_panda_description</test_depend>
   <test_depend>rosunit</test_depend>
+  <test_depend>rostest</test_depend>
+  <test_depend>eigen_conversions</test_depend>
 
   <export>
     <moveit_core plugin="${prefix}/ompl_interface_plugin_description.xml"/>

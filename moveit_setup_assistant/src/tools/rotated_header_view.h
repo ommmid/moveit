@@ -34,8 +34,7 @@
 
 /* Author: Robert Haschke */
 
-#ifndef MOVEIT_ROS_MOVEIT_SETUP_ASSISTANT_WIDGETS_ROTATED_HEADERVIEW_H
-#define MOVEIT_ROS_MOVEIT_SETUP_ASSISTANT_WIDGETS_ROTATED_HEADERVIEW_H
+#pragma once
 
 #include <QHeaderView>
 
@@ -44,11 +43,9 @@ namespace moveit_setup_assistant
 class RotatedHeaderView : public QHeaderView
 {
 public:
-  RotatedHeaderView(Qt::Orientation orientation, QWidget* parent = NULL);
+  RotatedHeaderView(Qt::Orientation orientation, QWidget* parent = nullptr);
   void paintSection(QPainter* painter, const QRect& rect, int logicalIndex) const override;
   QSize sectionSizeFromContents(int logicalIndex) const override;
   int sectionSizeHint(int logicalIndex) const;
 };
-}
-
-#endif  // MOVEIT_ROS_MOVEIT_SETUP_ASSISTANT_WIDGETS_ROTATED_HEADERVIEW_H
+}  // namespace moveit_setup_assistant

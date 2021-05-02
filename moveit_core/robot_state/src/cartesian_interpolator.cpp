@@ -1,42 +1,43 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2013, Ioan A. Sucan
-*  Copyright (c) 2013, Willow Garage, Inc.
-*  Copyright (c) 2019, PickNik LLC.
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of the Willow Garage nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2013, Ioan A. Sucan
+ *  Copyright (c) 2013, Willow Garage, Inc.
+ *  Copyright (c) 2019, PickNik LLC.
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of the Willow Garage nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Ioan Sucan, Sachin Chitta, Acorn Pooley, Mario Prats, Dave Coleman */
 
 #include <moveit/robot_state/cartesian_interpolator.h>
+#include <geometric_shapes/check_isometry.h>
 
 namespace moveit
 {
@@ -59,13 +60,14 @@ double CartesianInterpolator::computeCartesianPath(RobotState* start_state, cons
                                                    const kinematics::KinematicsQueryOptions& options)
 {
   // this is the Cartesian pose we start from, and have to move in the direction indicated
+  // getGlobalLinkTransform() returns a valid isometry by contract
   const Eigen::Isometry3d& start_pose = start_state->getGlobalLinkTransform(link);
 
   // the direction can be in the local reference frame (in which case we rotate it)
-  const Eigen::Vector3d rotated_direction = global_reference_frame ? direction : start_pose.rotation() * direction;
+  const Eigen::Vector3d rotated_direction = global_reference_frame ? direction : start_pose.linear() * direction;
 
   // The target pose is built by applying a translation to the start pose for the desired direction and distance
-  Eigen::Isometry3d target_pose = start_pose;
+  Eigen::Isometry3d target_pose = start_pose;  // valid isometry
   target_pose.translation() += rotated_direction * distance;
 
   // call computeCartesianPath for the computed target pose in the global reference frame
@@ -86,13 +88,16 @@ double CartesianInterpolator::computeCartesianPath(RobotState* start_state, cons
     start_state->enforceBounds(joint);
 
   // this is the Cartesian pose we start from, and we move in the direction indicated
-  Eigen::Isometry3d start_pose = start_state->getGlobalLinkTransform(link);
+  // getGlobalLinkTransform() returns a valid isometry by contract
+  Eigen::Isometry3d start_pose = start_state->getGlobalLinkTransform(link);  // valid isometry
+
+  ASSERT_ISOMETRY(target)  // unsanitized input, could contain a non-isometry
 
   // the target can be in the local reference frame (in which case we rotate it)
-  Eigen::Isometry3d rotated_target = global_reference_frame ? target : start_pose * target;
+  Eigen::Isometry3d rotated_target = global_reference_frame ? target : start_pose * target;  // valid isometry
 
-  Eigen::Quaterniond start_quaternion(start_pose.rotation());
-  Eigen::Quaterniond target_quaternion(rotated_target.rotation());
+  Eigen::Quaterniond start_quaternion(start_pose.linear());
+  Eigen::Quaterniond target_quaternion(rotated_target.linear());
 
   if (max_step.translation <= 0.0 && max_step.rotation <= 0.0)
   {
@@ -143,7 +148,7 @@ double CartesianInterpolator::computeCartesianPath(RobotState* start_state, cons
     }
 
   traj.clear();
-  traj.push_back(RobotStatePtr(new robot_state::RobotState(*start_state)));
+  traj.push_back(RobotStatePtr(new moveit::core::RobotState(*start_state)));
 
   double last_valid_percentage = 0.0;
   for (std::size_t i = 1; i <= steps; ++i)
@@ -156,7 +161,7 @@ double CartesianInterpolator::computeCartesianPath(RobotState* start_state, cons
     // Explicitly use a single IK attempt only: We want a smooth trajectory.
     // Random seeding (of additional attempts) would probably create IK jumps.
     if (start_state->setFromIK(group, pose, link->getName(), consistency_limits, 0.0, validCallback, options))
-      traj.push_back(RobotStatePtr(new robot_state::RobotState(*start_state)));
+      traj.push_back(RobotStatePtr(new moveit::core::RobotState(*start_state)));
     else
       break;
 
@@ -231,8 +236,9 @@ double CartesianInterpolator::checkRelativeJointSpaceJump(const JointModelGroup*
 {
   if (traj.size() < MIN_STEPS_FOR_JUMP_THRESH)
   {
-    ROS_WARN_NAMED(LOGNAME, "The computed trajectory is too short to detect jumps in joint-space "
-                            "Need at least %zu steps, only got %zu. Try a lower max_step.",
+    ROS_WARN_NAMED(LOGNAME,
+                   "The computed trajectory is too short to detect jumps in joint-space "
+                   "Need at least %zu steps, only got %zu. Try a lower max_step.",
                    MIN_STEPS_FOR_JUMP_THRESH, traj.size());
   }
 
@@ -287,8 +293,9 @@ double CartesianInterpolator::checkAbsoluteJointSpaceJump(const JointModelGroup*
           joint_threshold = prismatic_threshold;
           break;
         default:
-          ROS_WARN_NAMED(LOGNAME, "Joint %s has not supported type %s. \n"
-                                  "checkAbsoluteJointSpaceJump only supports prismatic and revolute joints.",
+          ROS_WARN_NAMED(LOGNAME,
+                         "Joint %s has not supported type %s. \n"
+                         "checkAbsoluteJointSpaceJump only supports prismatic and revolute joints.",
                          joint->getName().c_str(), joint->getTypeName().c_str());
           continue;
       }

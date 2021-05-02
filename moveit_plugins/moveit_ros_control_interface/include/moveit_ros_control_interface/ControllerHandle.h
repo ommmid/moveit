@@ -34,15 +34,14 @@
 
 /* Author: Mathias Lüdtke */
 
-#ifndef MOVEIT_ROS_CONTROL_INTERFACE_CONTROLLER_HANDLE_H
-#define MOVEIT_ROS_CONTROL_INTERFACE_CONTROLLER_HANDLE_H
+#pragma once
 
 #include <moveit/controller_manager/controller_manager.h>
 #include <moveit/macros/class_forward.h>
 
 namespace moveit_ros_control_interface
 {
-MOVEIT_CLASS_FORWARD(ControllerHandleAllocator);
+MOVEIT_CLASS_FORWARD(ControllerHandleAllocator);  // Defines ControllerHandleAllocatorPtr, ConstPtr, WeakPtr... etc
 
 /**
  * Base class for MoveItControllerHandle allocators
@@ -58,5 +57,3 @@ public:
 };
 
 }  // namespace moveit_ros_control_interface
-
-#endif  // MOVEIT_ROS_CONTROL_INTERFACE_CONTROLLER_HANDLE_H

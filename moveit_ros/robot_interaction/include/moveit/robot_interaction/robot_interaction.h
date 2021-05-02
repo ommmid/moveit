@@ -34,12 +34,10 @@
 
 /* Author: Ioan Sucan, Adam Leeper */
 
-#ifndef MOVEIT_ROBOT_INTERACTION_ROBOT_INTERACTION_
-#define MOVEIT_ROBOT_INTERACTION_ROBOT_INTERACTION_
+#pragma once
 
 #include <visualization_msgs/InteractiveMarkerFeedback.h>
 #include <visualization_msgs/InteractiveMarker.h>
-#include <geometry_msgs/PoseArray.h>
 #include <interactive_markers/menu_handler.h>
 #include <moveit/macros/class_forward.h>
 #include <moveit/robot_state/robot_state.h>
@@ -59,9 +57,9 @@ class InteractiveMarkerServer;
 
 namespace robot_interaction
 {
-MOVEIT_CLASS_FORWARD(InteractionHandler);
-MOVEIT_CLASS_FORWARD(KinematicOptionsMap);
-MOVEIT_CLASS_FORWARD(RobotInteraction);
+MOVEIT_CLASS_FORWARD(InteractionHandler);   // Defines InteractionHandlerPtr, ConstPtr, WeakPtr... etc
+MOVEIT_CLASS_FORWARD(KinematicOptionsMap);  // Defines KinematicOptionsMapPtr, ConstPtr, WeakPtr... etc
+MOVEIT_CLASS_FORWARD(RobotInteraction);     // Defines RobotInteractionPtr, ConstPtr, WeakPtr... etc
 
 // Manage interactive markers for controlling a robot state.
 //
@@ -77,10 +75,10 @@ public:
   /// The topic name on which the internal Interactive Marker Server operates
   static const std::string INTERACTIVE_MARKER_TOPIC;
 
-  RobotInteraction(const robot_model::RobotModelConstPtr& robot_model, const std::string& ns = "");
+  RobotInteraction(const moveit::core::RobotModelConstPtr& robot_model, const std::string& ns = "");
   virtual ~RobotInteraction();
 
-  const std::string& getServerTopic(void) const
+  const std::string& getServerTopic() const
   {
     return topic_;
   }
@@ -141,7 +139,7 @@ public:
   // is needed to actually remove the markers from the display.
   void clearInteractiveMarkers();
 
-  const robot_model::RobotModelConstPtr& getRobotModel() const
+  const moveit::core::RobotModelConstPtr& getRobotModel() const
   {
     return robot_model_;
   }
@@ -181,7 +179,7 @@ private:
   // return the diameter of the sphere that certainly can enclose the AABB of the links in this group
   double computeGroupMarkerSize(const std::string& group);
   void computeMarkerPose(const InteractionHandlerPtr& handler, const EndEffectorInteraction& eef,
-                         const robot_state::RobotState& robot_state, geometry_msgs::Pose& pose,
+                         const moveit::core::RobotState& robot_state, geometry_msgs::Pose& pose,
                          geometry_msgs::Pose& control_to_eef_tf) const;
 
   void addEndEffectorMarkers(const InteractionHandlerPtr& handler, const EndEffectorInteraction& eef,
@@ -200,7 +198,7 @@ private:
   boost::condition_variable new_feedback_condition_;
   std::map<std::string, visualization_msgs::InteractiveMarkerFeedbackConstPtr> feedback_map_;
 
-  robot_model::RobotModelConstPtr robot_model_;
+  moveit::core::RobotModelConstPtr robot_model_;
 
   std::vector<EndEffectorInteraction> active_eef_;
   std::vector<JointInteraction> active_vj_;
@@ -233,6 +231,4 @@ private:
   // options for doing IK
   KinematicOptionsMapPtr kinematic_options_map_;
 };
-}
-
-#endif
+}  // namespace robot_interaction

@@ -36,7 +36,6 @@
 #include <moveit/planning_scene/planning_scene.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/collision_distance_field/collision_detector_allocator_hybrid.h>
-#include <moveit_msgs/GetMotionPlan.h>
 #include <chomp_interface/chomp_planning_context.h>
 
 #include <pluginlib/class_list_macros.hpp>
@@ -50,7 +49,7 @@ public:
   {
   }
 
-  bool initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns) override
+  bool initialize(const moveit::core::RobotModelConstPtr& model, const std::string& /*ns*/) override
   {
     for (const std::string& group : model->getJointModelGroupNames())
     {
@@ -92,7 +91,7 @@ public:
     return context;
   }
 
-  bool canServiceRequest(const planning_interface::MotionPlanRequest& req) const override
+  bool canServiceRequest(const planning_interface::MotionPlanRequest& /*req*/) const override
   {
     // TODO: this is a dummy implementation
     //      capabilities.dummy = false;

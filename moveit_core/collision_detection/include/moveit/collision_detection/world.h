@@ -34,15 +34,13 @@
 
 /* Author: Ioan Sucan, Acorn Pooley, Sachin Chitta */
 
-#ifndef MOVEIT_COLLISION_DETECTION_WORLD_
-#define MOVEIT_COLLISION_DETECTION_WORLD_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 
 #include <string>
 #include <vector>
 #include <map>
-#include <memory>
 #include <boost/function.hpp>
 #include <Eigen/Geometry>
 #include <eigen_stl_containers/eigen_stl_vector_container.h>
@@ -50,12 +48,12 @@
 
 namespace shapes
 {
-MOVEIT_CLASS_FORWARD(Shape);
+MOVEIT_CLASS_FORWARD(Shape);  // Defines ShapePtr, ConstPtr, WeakPtr... etc
 }
 
 namespace collision_detection
 {
-MOVEIT_CLASS_FORWARD(World);
+MOVEIT_CLASS_FORWARD(World);  // Defines WorldPtr, ConstPtr, WeakPtr... etc
 
 /** \brief Maintain a representation of the environment */
 class World
@@ -121,7 +119,7 @@ public:
   ObjectConstPtr getObject(const std::string& object_id) const;
 
   /** iterator over the objects in the world. */
-  typedef std::map<std::string, ObjectPtr>::const_iterator const_iterator;
+  using const_iterator = std::map<std::string, ObjectPtr>::const_iterator;
   /** iterator pointing to first change */
   const_iterator begin() const
   {
@@ -152,12 +150,14 @@ public:
 
   /** \brief Get the transform to an object or subframe with given name.
    * If name does not exist, a std::runtime_error is thrown.
-   * A subframe name needs to be prefixed with the object's name separated by a slash. */
+   * A subframe name needs to be prefixed with the object's name separated by a slash.
+   * The returned transform is guaranteed to be a valid isometry. */
   const Eigen::Isometry3d& getTransform(const std::string& name) const;
 
   /** \brief Get the transform to an object or subframe with given name.
    * If name does not exist, returns an identity transform and sets frame_found to false.
-   * A subframe name needs to be prefixed with the object's name separated by a slash. */
+   * A subframe name needs to be prefixed with the object's name separated by a slash.
+   * The returned transform is guaranteed to be a valid isometry. */
   const Eigen::Isometry3d& getTransform(const std::string& name, bool& frame_found) const;
 
   /** \brief Add shapes to an object in the map.
@@ -242,7 +242,7 @@ public:
   class ObserverHandle
   {
   public:
-    ObserverHandle() : observer_(NULL)
+    ObserverHandle() : observer_(nullptr)
     {
     }
 
@@ -254,7 +254,7 @@ public:
     friend class World;
   };
 
-  typedef boost::function<void(const ObjectConstPtr&, Action)> ObserverCallbackFn;
+  using ObserverCallbackFn = boost::function<void(const ObjectConstPtr&, Action)>;
 
   /** \brief register a callback function for notification of changes.
    * \e callback will be called right after any change occurs to any Object.
@@ -271,7 +271,7 @@ public:
 
 private:
   /** notify all observers of a change */
-  void notify(const ObjectConstPtr&, Action);
+  void notify(const ObjectConstPtr& /*obj*/, Action /*action*/);
 
   /** send notification of change to all objects. */
   void notifyAll(Action action);
@@ -288,7 +288,7 @@ private:
   /** The objects maintained in the world */
   std::map<std::string, ObjectPtr> objects_;
 
-  /* observers to call when something changes */
+  /** Wrapper for a callback function to call when something changes in the world */
   class Observer
   {
   public:
@@ -297,8 +297,8 @@ private:
     }
     ObserverCallbackFn callback_;
   };
+
+  /// All registered observers of this world representation
   std::vector<Observer*> observers_;
 };
-}
-
-#endif
+}  // namespace collision_detection

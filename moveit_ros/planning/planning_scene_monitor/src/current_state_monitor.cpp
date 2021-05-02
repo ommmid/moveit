@@ -41,13 +41,13 @@
 
 #include <limits>
 
-planning_scene_monitor::CurrentStateMonitor::CurrentStateMonitor(const robot_model::RobotModelConstPtr& robot_model,
+planning_scene_monitor::CurrentStateMonitor::CurrentStateMonitor(const moveit::core::RobotModelConstPtr& robot_model,
                                                                  const std::shared_ptr<tf2_ros::Buffer>& tf_buffer)
   : CurrentStateMonitor(robot_model, tf_buffer, ros::NodeHandle())
 {
 }
 
-planning_scene_monitor::CurrentStateMonitor::CurrentStateMonitor(const robot_model::RobotModelConstPtr& robot_model,
+planning_scene_monitor::CurrentStateMonitor::CurrentStateMonitor(const moveit::core::RobotModelConstPtr& robot_model,
                                                                  const std::shared_ptr<tf2_ros::Buffer>& tf_buffer,
                                                                  const ros::NodeHandle& nh)
   : nh_(nh)
@@ -66,11 +66,11 @@ planning_scene_monitor::CurrentStateMonitor::~CurrentStateMonitor()
   stopStateMonitor();
 }
 
-robot_state::RobotStatePtr planning_scene_monitor::CurrentStateMonitor::getCurrentState() const
+moveit::core::RobotStatePtr planning_scene_monitor::CurrentStateMonitor::getCurrentState() const
 {
   boost::mutex::scoped_lock slock(state_update_lock_);
-  robot_state::RobotState* result = new robot_state::RobotState(robot_state_);
-  return robot_state::RobotStatePtr(result);
+  moveit::core::RobotState* result = new moveit::core::RobotState(robot_state_);
+  return moveit::core::RobotStatePtr(result);
 }
 
 ros::Time planning_scene_monitor::CurrentStateMonitor::getCurrentStateTime() const
@@ -79,12 +79,12 @@ ros::Time planning_scene_monitor::CurrentStateMonitor::getCurrentStateTime() con
   return current_state_time_;
 }
 
-std::pair<robot_state::RobotStatePtr, ros::Time>
+std::pair<moveit::core::RobotStatePtr, ros::Time>
 planning_scene_monitor::CurrentStateMonitor::getCurrentStateAndTime() const
 {
   boost::mutex::scoped_lock slock(state_update_lock_);
-  robot_state::RobotState* result = new robot_state::RobotState(robot_state_);
-  return std::make_pair(robot_state::RobotStatePtr(result), current_state_time_);
+  moveit::core::RobotState* result = new moveit::core::RobotState(robot_state_);
+  return std::make_pair(moveit::core::RobotStatePtr(result), current_state_time_);
 }
 
 std::map<std::string, double> planning_scene_monitor::CurrentStateMonitor::getCurrentStateValues() const
@@ -98,7 +98,7 @@ std::map<std::string, double> planning_scene_monitor::CurrentStateMonitor::getCu
   return m;
 }
 
-void planning_scene_monitor::CurrentStateMonitor::setToCurrentState(robot_state::RobotState& upd) const
+void planning_scene_monitor::CurrentStateMonitor::setToCurrentState(moveit::core::RobotState& upd) const
 {
   boost::mutex::scoped_lock slock(state_update_lock_);
   const double* pos = robot_state_.getVariablePositions();
@@ -364,28 +364,12 @@ void planning_scene_monitor::CurrentStateMonitor::jointStateCallback(const senso
         update = true;
         robot_state_.setJointPositions(jm, &(joint_state->position[i]));
 
-        // optionally copy velocities and effort
-        if (copy_dynamics_)
-        {
-          // check if velocities exist
-          if (joint_state->name.size() == joint_state->velocity.size())
-          {
-            robot_state_.setJointVelocities(jm, &(joint_state->velocity[i]));
-
-            // check if effort exist. assume they are not useful if no velocities were passed in
-            if (joint_state->name.size() == joint_state->effort.size())
-            {
-              robot_state_.setJointEfforts(jm, &(joint_state->effort[i]));
-            }
-          }
-        }
-
         // continuous joints wrap, so we don't modify them (even if they are outside bounds!)
         if (jm->getType() == moveit::core::JointModel::REVOLUTE)
           if (static_cast<const moveit::core::RevoluteJointModel*>(jm)->isContinuous())
             continue;
 
-        const robot_model::VariableBounds& b =
+        const moveit::core::VariableBounds& b =
             jm->getVariableBounds()[0];  // only one variable in the joint, so we get its bounds
 
         // if the read variable is 'almost' within bounds (up to error_ difference), then consider it to be within
@@ -394,6 +378,26 @@ void planning_scene_monitor::CurrentStateMonitor::jointStateCallback(const senso
           robot_state_.setJointPositions(jm, &b.min_position_);
         else if (joint_state->position[i] > b.max_position_ && joint_state->position[i] <= b.max_position_ + error_)
           robot_state_.setJointPositions(jm, &b.max_position_);
+      }
+
+      // optionally copy velocities and effort
+      if (copy_dynamics_)
+      {
+        // update joint velocities
+        if (joint_state->name.size() == joint_state->velocity.size() &&
+            (!robot_state_.hasVelocities() || robot_state_.getJointVelocities(jm)[0] != joint_state->velocity[i]))
+        {
+          update = true;
+          robot_state_.setJointVelocities(jm, &(joint_state->velocity[i]));
+        }
+
+        // update joint efforts
+        if (joint_state->name.size() == joint_state->effort.size() &&
+            (!robot_state_.hasEffort() || robot_state_.getJointEffort(jm)[0] != joint_state->effort[i]))
+        {
+          update = true;
+          robot_state_.setJointEfforts(jm, &(joint_state->effort[i]));
+        }
       }
     }
   }
@@ -443,20 +447,20 @@ void planning_scene_monitor::CurrentStateMonitor::tfCallback()
         continue;
       joint_time_[joint] = latest_common_time;
 
-      double new_values[joint->getStateSpaceDimension()];
-      const robot_model::LinkModel* link = joint->getChildLinkModel();
+      std::vector<double> new_values(joint->getStateSpaceDimension());
+      const moveit::core::LinkModel* link = joint->getChildLinkModel();
       if (link->jointOriginTransformIsIdentity())
-        joint->computeVariablePositions(tf2::transformToEigen(transf), new_values);
+        joint->computeVariablePositions(tf2::transformToEigen(transf), new_values.data());
       else
         joint->computeVariablePositions(link->getJointOriginTransform().inverse() * tf2::transformToEigen(transf),
-                                        new_values);
+                                        new_values.data());
 
-      if (joint->distance(new_values, robot_state_.getJointPositions(joint)) > 1e-5)
+      if (joint->distance(new_values.data(), robot_state_.getJointPositions(joint)) > 1e-5)
       {
         changes = true;
       }
 
-      robot_state_.setJointPositions(joint, new_values);
+      robot_state_.setJointPositions(joint, new_values.data());
       update = true;
     }
   }

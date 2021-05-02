@@ -34,8 +34,7 @@
 
 /* Author: Suat Gedikli */
 
-#ifndef MOVEIT_MESH_FILTER_STEREO_CAMERA_MODEL_
-#define MOVEIT_MESH_FILTER_STEREO_CAMERA_MODEL_
+#pragma once
 
 #include <moveit/mesh_filter/sensor_model.h>
 #include <string>
@@ -149,7 +148,7 @@ public:
   };
 
   /** \brief predefined sensor model for OpenNI compatible devices (e.g., PrimeSense, Kinect, Asus Xtion) */
-  static const StereoCameraModel::Parameters& REGISTERED_PSDK_PARAMS;
+  static const StereoCameraModel::Parameters& REGISTERED_PSDK_PARAMS;  // NOLINT(readability-identifier-naming)
 
   /** \brief source code of the vertex shader used to render the meshes*/
   static const std::string RENDER_VERTEX_SHADER_SOURCE;
@@ -164,4 +163,3 @@ public:
   static const std::string FILTER_FRAGMENT_SHADER_SOURCE;
 };
 }  // namespace mesh_filter
-#endif

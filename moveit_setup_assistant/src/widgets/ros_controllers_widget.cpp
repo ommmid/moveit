@@ -35,13 +35,27 @@
 
 // SA
 #include "ros_controllers_widget.h"
+#include "double_list_widget.h"
+#include "controller_edit_widget.h"
+#include "header_widget.h"
 #include <moveit_msgs/JointLimits.h>
 // Qt
-#include <QFormLayout>
-#include <QMessageBox>
-#include <QDoubleValidator>
-#include <QTreeWidgetItem>
 #include <QApplication>
+#include <QDoubleValidator>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QStackedWidget>
+#include <QString>
+#include <QTableWidget>
+#include <QTreeWidget>
+#include <QTreeWidgetItem>
+#include <QVBoxLayout>
 
 #include <regex>
 #include <moveit/robot_state/conversions.h>
@@ -49,7 +63,7 @@
 namespace moveit_setup_assistant
 {
 // ******************************************************************************************
-// Outer User Interface for MoveIt! Configuration Assistant
+// Outer User Interface for MoveIt Configuration Assistant
 // ******************************************************************************************
 ROSControllersWidget::ROSControllersWidget(QWidget* parent, const MoveItConfigDataPtr& config_data)
   : SetupScreenWidget(parent), config_data_(config_data)
@@ -64,7 +78,7 @@ ROSControllersWidget::ROSControllersWidget(QWidget* parent, const MoveItConfigDa
 
   // Top Header Area ------------------------------------------------
   moveit_setup_assistant::HeaderWidget* header = new moveit_setup_assistant::HeaderWidget(
-      "Setup ROS Controllers", "Configure MoveIt! to work with ROS Control to control the robot's physical hardware",
+      "Setup ROS Controllers", "Configure MoveIt to work with ROS Control to control the robot's physical hardware",
       this);
   layout->addWidget(header);
 
@@ -95,19 +109,12 @@ ROSControllersWidget::ROSControllersWidget(QWidget* parent, const MoveItConfigDa
   connect(controller_edit_widget_, SIGNAL(saveJointsGroups()), this, SLOT(saveControllerScreenGroups()));
 
   // Combine into stack
-  stacked_layout_ = new QStackedLayout(this);
-  stacked_layout_->addWidget(controllers_tree_widget_);  // screen index 0
-  stacked_layout_->addWidget(joints_widget_);            // screen index 1
-  stacked_layout_->addWidget(controller_edit_widget_);   // screen index 2
-  stacked_layout_->addWidget(joint_groups_widget_);      // screen index 3
-
-  // Finish GUI -----------------------------------------------------------
-
-  // Create Widget wrapper for layout
-  QWidget* stacked_layout_widget = new QWidget(this);
-  stacked_layout_widget->setLayout(stacked_layout_);
-
-  layout->addWidget(stacked_layout_widget);
+  stacked_widget_ = new QStackedWidget(this);
+  stacked_widget_->addWidget(controllers_tree_widget_);  // screen index 0
+  stacked_widget_->addWidget(joints_widget_);            // screen index 1
+  stacked_widget_->addWidget(controller_edit_widget_);   // screen index 2
+  stacked_widget_->addWidget(joint_groups_widget_);      // screen index 3
+  layout->addWidget(stacked_widget_);
 
   this->setLayout(layout);
 }
@@ -162,9 +169,7 @@ QWidget* ROSControllersWidget::createContentsWidget()
   controls_layout_->addWidget(expand_controls);
 
   // Spacer
-  QWidget* spacer = new QWidget(this);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  controls_layout_->addWidget(spacer);
+  controls_layout_->addItem(new QSpacerItem(20, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   // Delete
   btn_delete_ = new QPushButton("&Delete Controller", this);
@@ -283,7 +288,7 @@ void ROSControllersWidget::focusGiven()
 void ROSControllersWidget::loadJointsScreen(moveit_setup_assistant::ROSControlConfig* this_controller)
 {
   // Retrieve pointer to the shared kinematic model
-  const robot_model::RobotModelConstPtr& model = config_data_->getRobotModel();
+  const moveit::core::RobotModelConstPtr& model = config_data_->getRobotModel();
 
   // Get the names of the all joints
   const std::vector<std::string>& joints = model->getJointModelNames();
@@ -426,8 +431,7 @@ void ROSControllersWidget::loadControllerScreen(moveit_setup_assistant::ROSContr
   else  // load the controller name into the widget
   {
     current_edit_controller_ = this_controller->name_;
-    controller_edit_widget_->setTitle(
-        QString("Edit Controller '").append(current_edit_controller_.c_str()).append("'"));
+    controller_edit_widget_->setTitle(QString("Edit Controller '").append(current_edit_controller_.c_str()).append("'"));
     controller_edit_widget_->showDelete();
     controller_edit_widget_->hideNewButtonsWidget();  // not necessary for existing controllers
     controller_edit_widget_->showSave();              // this is only for edit mode
@@ -466,14 +470,14 @@ void ROSControllersWidget::cancelEditing()
 // ******************************************************************************************
 // Called from Double List widget to highlight joints
 // ******************************************************************************************
-void ROSControllersWidget::previewSelectedJoints(std::vector<std::string> joints)
+void ROSControllersWidget::previewSelectedJoints(const std::vector<std::string>& joints)
 {
   // Unhighlight all links
   Q_EMIT unhighlightAll();
 
   for (const std::string& joint : joints)
   {
-    const robot_model::JointModel* joint_model = config_data_->getRobotModel()->getJointModel(joint);
+    const moveit::core::JointModel* joint_model = config_data_->getRobotModel()->getJointModel(joint);
 
     // Check that a joint model was found
     if (!joint_model)
@@ -497,7 +501,7 @@ void ROSControllersWidget::previewSelectedJoints(std::vector<std::string> joints
 // ******************************************************************************************
 // Called from Double List widget to highlight a group
 // ******************************************************************************************
-void ROSControllersWidget::previewSelectedGroup(std::vector<std::string> groups)
+void ROSControllersWidget::previewSelectedGroup(const std::vector<std::string>& groups)
 {
   // Unhighlight all links
   Q_EMIT unhighlightAll();
@@ -512,7 +516,7 @@ void ROSControllersWidget::previewSelectedGroup(std::vector<std::string> groups)
 // ******************************************************************************************
 // Called when an item is seleceted from the controllers tree
 // ******************************************************************************************
-void ROSControllersWidget::previewSelected(QTreeWidgetItem* selected_item, int column)
+void ROSControllersWidget::previewSelected(QTreeWidgetItem* selected_item, int /*column*/)
 {
   // Get the user custom properties of the currently selected row
   int type = selected_item->data(0, Qt::UserRole).value<int>();
@@ -608,14 +612,14 @@ void ROSControllersWidget::saveJointsGroupsScreen()
   for (int i = 0; i < joint_groups_widget_->selected_data_table_->rowCount(); ++i)
   {
     // Get list of associated joints
-    const robot_model::JointModelGroup* joint_model_group = config_data_->getRobotModel()->getJointModelGroup(
+    const moveit::core::JointModelGroup* joint_model_group = config_data_->getRobotModel()->getJointModelGroup(
         joint_groups_widget_->selected_data_table_->item(i, 0)->text().toStdString());
-    const std::vector<const robot_model::JointModel*>& joint_models = joint_model_group->getActiveJointModels();
+    const std::vector<const moveit::core::JointModel*>& joint_models = joint_model_group->getActiveJointModels();
 
     // Iterate through the joints
-    for (const robot_model::JointModel* joint : joint_models)
+    for (const moveit::core::JointModel* joint : joint_models)
     {
-      if (joint->isPassive() || joint->getMimic() != nullptr || joint->getType() == robot_model::JointModel::FIXED)
+      if (joint->isPassive() || joint->getMimic() != nullptr || joint->getType() == moveit::core::JointModel::FIXED)
         continue;
       searched_controller->joints_.push_back(joint->getName());
     }
@@ -671,14 +675,12 @@ bool ROSControllersWidget::saveControllerScreen()
   }
 
   // Check that the controller name is unique
-  for (std::vector<moveit_setup_assistant::ROSControlConfig>::const_iterator controller_it =
-           config_data_->getROSControllers().begin();
-       controller_it != config_data_->getROSControllers().end(); ++controller_it)
+  for (const auto& controller : config_data_->getROSControllers())
   {
-    if (controller_it->name_.compare(controller_name) == 0)  // the names are the same
+    if (controller.name_.compare(controller_name) == 0)  // the names are the same
     {
       // is this our existing controller? check if controller pointers are same
-      if (&(*controller_it) != searched_controller)
+      if (&controller != searched_controller)
       {
         QMessageBox::warning(this, "Error Saving", "A controller already exists with that name!");
         return false;
@@ -802,7 +804,7 @@ void ROSControllersWidget::editController()
 // ******************************************************************************************
 void ROSControllersWidget::showMainScreen()
 {
-  stacked_layout_->setCurrentIndex(0);
+  stacked_widget_->setCurrentIndex(0);
 
   // Announce that this widget is not in modal mode
   Q_EMIT isModal(false);
@@ -813,7 +815,7 @@ void ROSControllersWidget::showMainScreen()
 // ******************************************************************************************
 void ROSControllersWidget::changeScreen(int index)
 {
-  stacked_layout_->setCurrentIndex(index);
+  stacked_widget_->setCurrentIndex(index);
 
   // Announce this widget's mode
   Q_EMIT isModal(index != 0);

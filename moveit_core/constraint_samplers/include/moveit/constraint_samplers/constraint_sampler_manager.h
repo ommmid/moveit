@@ -34,15 +34,14 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_CONSTRAINT_SAMPLERS_CONSTRAINT_SAMPLER_MANAGER_
-#define MOVEIT_CONSTRAINT_SAMPLERS_CONSTRAINT_SAMPLER_MANAGER_
+#pragma once
 
 #include <moveit/constraint_samplers/constraint_sampler_allocator.h>
 #include <moveit/macros/class_forward.h>
 
 namespace constraint_samplers
 {
-MOVEIT_CLASS_FORWARD(ConstraintSamplerManager);
+MOVEIT_CLASS_FORWARD(ConstraintSamplerManager);  // Defines ConstraintSamplerManagerPtr, ConstPtr, WeakPtr... etc
 
 /**
  * \brief This class assists in the generation of a ConstraintSampler for a
@@ -143,6 +142,4 @@ private:
   std::vector<ConstraintSamplerAllocatorPtr>
       sampler_alloc_; /**< \brief Holds the constraint sampler allocators, which will be tested in order  */
 };
-}
-
-#endif
+}  // namespace constraint_samplers

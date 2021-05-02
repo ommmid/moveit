@@ -38,7 +38,6 @@
 #include <kdl_parser/kdl_parser.hpp>
 #include <tf2_kdl/tf2_kdl.h>
 #include <algorithm>
-#include <numeric>
 
 #include <moveit/robot_model/robot_model.h>
 #include "pr2_arm_kinematics_plugin.h"
@@ -92,10 +91,7 @@ PR2ArmIKSolver::PR2ArmIKSolver(const urdf::ModelInterface& robot_model, const st
   search_discretization_angle_ = search_discretization_angle;
   free_angle_ = free_angle;
   root_frame_name_ = root_frame_name;
-  if (!pr2_arm_ik_.init(robot_model, root_frame_name, tip_frame_name))
-    active_ = false;
-  else
-    active_ = true;
+  active_ = pr2_arm_ik_.init(robot_model, root_frame_name, tip_frame_name);
 }
 
 void PR2ArmIKSolver::updateInternalDataStructures()

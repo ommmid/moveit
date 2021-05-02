@@ -57,7 +57,7 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
                                                                     const std::string& group_name,
                                                                     const moveit_msgs::Constraints& constr)
 {
-  const robot_model::JointModelGroup* jmg = scene->getRobotModel()->getJointModelGroup(group_name);
+  const moveit::core::JointModelGroup* jmg = scene->getRobotModel()->getJointModelGroup(group_name);
   if (!jmg)
     return constraint_samplers::ConstraintSamplerPtr();
   std::stringstream ss;
@@ -70,8 +70,9 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
   // if there are joint constraints, we could possibly get a sampler from those
   if (!constr.joint_constraints.empty())
   {
-    ROS_DEBUG_NAMED("constraint_samplers", "There are joint constraints specified. "
-                                           "Attempting to construct a JointConstraintSampler for group '%s'",
+    ROS_DEBUG_NAMED("constraint_samplers",
+                    "There are joint constraints specified. "
+                    "Attempting to construct a JointConstraintSampler for group '%s'",
                     jmg->getName().c_str());
 
     std::map<std::string, bool> joint_coverage;
@@ -135,15 +136,16 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
     samplers.push_back(joint_sampler);
 
   // read the ik allocators, if any
-  const robot_model::JointModelGroup::KinematicsSolver& ik_alloc = jmg->getGroupKinematics().first;
-  const robot_model::JointModelGroup::KinematicsSolverMap& ik_subgroup_alloc = jmg->getGroupKinematics().second;
+  const moveit::core::JointModelGroup::KinematicsSolver& ik_alloc = jmg->getGroupKinematics().first;
+  const moveit::core::JointModelGroup::KinematicsSolverMap& ik_subgroup_alloc = jmg->getGroupKinematics().second;
 
   // if we have a means of computing complete states for the group using IK, then we try to see if any IK constraints
   // should be used
   if (ik_alloc)
   {
-    ROS_DEBUG_NAMED("constraint_samplers", "There is an IK allocator for '%s'. "
-                                           "Checking for corresponding position and/or orientation constraints",
+    ROS_DEBUG_NAMED("constraint_samplers",
+                    "There is an IK allocator for '%s'. "
+                    "Checking for corresponding position and/or orientation constraints",
                     jmg->getName().c_str());
 
     // keep track of which links we constrained
@@ -177,8 +179,9 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
               {
                 // assign the link to a new constraint sampler
                 used_l[constr.position_constraints[p].link_name] = iks;
-                ROS_DEBUG_NAMED("constraint_samplers", "Allocated an IK-based sampler for group '%s' "
-                                                       "satisfying position and orientation constraints on link '%s'",
+                ROS_DEBUG_NAMED("constraint_samplers",
+                                "Allocated an IK-based sampler for group '%s' "
+                                "satisfying position and orientation constraints on link '%s'",
                                 jmg->getName().c_str(), constr.position_constraints[p].link_name.c_str());
               }
             }
@@ -209,8 +212,9 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
           if (use)
           {
             used_l[position_constraint.link_name] = iks;
-            ROS_DEBUG_NAMED("constraint_samplers", "Allocated an IK-based sampler for group '%s' "
-                                                   "satisfying position constraints on link '%s'",
+            ROS_DEBUG_NAMED("constraint_samplers",
+                            "Allocated an IK-based sampler for group '%s' "
+                            "satisfying position constraints on link '%s'",
                             jmg->getName().c_str(), position_constraint.link_name.c_str());
           }
         }
@@ -238,8 +242,9 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
           if (use)
           {
             used_l[orientation_constraint.link_name] = iks;
-            ROS_DEBUG_NAMED("constraint_samplers", "Allocated an IK-based sampler for group '%s' "
-                                                   "satisfying orientation constraints on link '%s'",
+            ROS_DEBUG_NAMED("constraint_samplers",
+                            "Allocated an IK-based sampler for group '%s' "
+                            "satisfying orientation constraints on link '%s'",
                             jmg->getName().c_str(), orientation_constraint.link_name.c_str());
           }
         }
@@ -264,8 +269,7 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
       // find the sampler with the smallest sampling volume; delete the rest
       IKConstraintSamplerPtr iks = used_l.begin()->second;
       double msv = iks->getSamplingVolume();
-      for (std::map<std::string, IKConstraintSamplerPtr>::const_iterator it = ++used_l.begin(); it != used_l.end();
-           ++it)
+      for (std::map<std::string, IKConstraintSamplerPtr>::const_iterator it = ++used_l.begin(); it != used_l.end(); ++it)
       {
         double v = it->second->getSamplingVolume();
         if (v < msv)
@@ -290,14 +294,15 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
   // we now check to see if we can use samplers from subgroups
   if (!ik_subgroup_alloc.empty())
   {
-    ROS_DEBUG_NAMED("constraint_samplers", "There are IK allocators for subgroups of group '%s'. "
-                                           "Checking for corresponding position and/or orientation constraints",
+    ROS_DEBUG_NAMED("constraint_samplers",
+                    "There are IK allocators for subgroups of group '%s'. "
+                    "Checking for corresponding position and/or orientation constraints",
                     jmg->getName().c_str());
 
     bool some_sampler_valid = false;
 
     std::set<std::size_t> used_p, used_o;
-    for (robot_model::JointModelGroup::KinematicsSolverMap::const_iterator it = ik_subgroup_alloc.begin();
+    for (moveit::core::JointModelGroup::KinematicsSolverMap::const_iterator it = ik_subgroup_alloc.begin();
          it != ik_subgroup_alloc.end(); ++it)
     {
       // construct a sub-set of constraints that operate on the sub-group for which we have an IK allocator
@@ -326,8 +331,9 @@ constraint_samplers::ConstraintSamplerManager::selectDefaultSampler(const planni
         ConstraintSamplerPtr cs = selectDefaultSampler(scene, it->first->getName(), sub_constr);
         if (cs)
         {
-          ROS_DEBUG_NAMED("constraint_samplers", "Constructed a sampler for the joints corresponding to group '%s', "
-                                                 "but part of group '%s'",
+          ROS_DEBUG_NAMED("constraint_samplers",
+                          "Constructed a sampler for the joints corresponding to group '%s', "
+                          "but part of group '%s'",
                           it->first->getName().c_str(), jmg->getName().c_str());
           some_sampler_valid = true;
           samplers.push_back(cs);

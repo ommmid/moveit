@@ -34,12 +34,12 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_ROS_MOVEIT_SETUP_ASSISTANT_WIDGETS_HEADER_WIDGET_
-#define MOVEIT_ROS_MOVEIT_SETUP_ASSISTANT_WIDGETS_HEADER_WIDGET_
+#pragma once
 
 #include <QWidget>
-#include <QLabel>
-#include <QLineEdit>
+#include <QFrame>
+class QLabel;
+class QLineEdit;
 
 namespace moveit_setup_assistant
 {
@@ -118,6 +118,4 @@ public:
   void setArgs(const QString& args);
   void setArgsEnabled(bool enabled = true);
 };
-}
-
-#endif
+}  // namespace moveit_setup_assistant

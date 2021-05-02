@@ -39,13 +39,10 @@
 #include <limits>
 #include <Eigen/Geometry>
 #include <algorithm>
-#include <angles/angles.h>
 #include <cmath>
 #include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
 #include <ros/console.h>
 #include <vector>
-
-#include <iostream>
 
 namespace trajectory_processing
 {
@@ -110,7 +107,6 @@ public:
     const Eigen::VectorXd start_direction = (intersection - start).normalized();
     const Eigen::VectorXd end_direction = (end - intersection).normalized();
 
-    // check if directions are divergent
     if ((start_direction - end_direction).norm() < 0.000001)
     {
       length_ = 0.0;
@@ -122,7 +118,7 @@ public:
     }
 
     // directions must be different at this point so angle is always non-zero
-    const double angle = acos(start_direction.dot(end_direction));
+    const double angle = acos(std::max(-1.0, start_direction.dot(end_direction)));
     const double start_distance = (start - intersection).norm();
     const double end_distance = (end - intersection).norm();
 
@@ -439,9 +435,8 @@ bool Trajectory::getNextAccelerationSwitchingPoint(double path_pos, TrajectorySt
       if ((before_path_vel > after_path_vel ||
            getMinMaxPhaseSlope(switching_path_pos - EPS, switching_path_vel, false) >
                getAccelerationMaxPathVelocityDeriv(switching_path_pos - 2.0 * EPS)) &&
-          (before_path_vel < after_path_vel ||
-           getMinMaxPhaseSlope(switching_path_pos + EPS, switching_path_vel, true) <
-               getAccelerationMaxPathVelocityDeriv(switching_path_pos + 2.0 * EPS)))
+          (before_path_vel < after_path_vel || getMinMaxPhaseSlope(switching_path_pos + EPS, switching_path_vel, true) <
+                                                   getAccelerationMaxPathVelocityDeriv(switching_path_pos + 2.0 * EPS)))
       {
         break;
       }
@@ -481,9 +476,8 @@ bool Trajectory::getNextVelocitySwitchingPoint(double path_pos, TrajectoryStep& 
     {
       start = true;
     }
-  } while ((!start ||
-            getMinMaxPhaseSlope(path_pos, getVelocityMaxPathVelocity(path_pos), false) >
-                getVelocityMaxPathVelocityDeriv(path_pos)) &&
+  } while ((!start || getMinMaxPhaseSlope(path_pos, getVelocityMaxPathVelocity(path_pos), false) >
+                          getVelocityMaxPathVelocityDeriv(path_pos)) &&
            path_pos < path_.getLength());
 
   if (path_pos >= path_.getLength())
@@ -538,6 +532,12 @@ bool Trajectory::integrateForward(std::list<TrajectoryStep>& trajectory, double 
 
     if (next_discontinuity != switching_points.end() && path_pos > next_discontinuity->first)
     {
+      // Avoid having a TrajectoryStep with path_pos near a switching point which will cause an almost identical
+      // TrajectoryStep get added in the next run (https://github.com/ros-planning/moveit/issues/1665)
+      if (path_pos - next_discontinuity->first < EPS)
+      {
+        continue;
+      }
       path_vel = old_path_vel +
                  (next_discontinuity->first - old_path_pos) * (path_vel - old_path_vel) / (path_pos - old_path_pos);
       path_pos = next_discontinuity->first;
@@ -859,8 +859,9 @@ Eigen::VectorXd Trajectory::getAcceleration(double time) const
   return path_acc;
 }
 
-TimeOptimalTrajectoryGeneration::TimeOptimalTrajectoryGeneration(const double path_tolerance, const double resample_dt)
-  : path_tolerance_(path_tolerance), resample_dt_(resample_dt)
+TimeOptimalTrajectoryGeneration::TimeOptimalTrajectoryGeneration(const double path_tolerance, const double resample_dt,
+                                                                 const double min_angle_change)
+  : path_tolerance_(path_tolerance), resample_dt_(resample_dt), min_angle_change_(min_angle_change)
 {
 }
 
@@ -875,7 +876,7 @@ bool TimeOptimalTrajectoryGeneration::computeTimeStamps(robot_trajectory::RobotT
   if (trajectory.empty())
     return true;
 
-  const robot_model::JointModelGroup* group = trajectory.getGroup();
+  const moveit::core::JointModelGroup* group = trajectory.getGroup();
   if (!group)
   {
     ROS_ERROR_NAMED(LOGNAME, "It looks like the planner did not set the group the plan was computed for");
@@ -921,7 +922,7 @@ bool TimeOptimalTrajectoryGeneration::computeTimeStamps(robot_trajectory::RobotT
   // This is pretty much copied from IterativeParabolicTimeParameterization::applyVelocityConstraints
   const std::vector<std::string>& vars = group->getVariableNames();
   const std::vector<int>& idx = group->getVariableIndexList();
-  const robot_model::RobotModel& rmodel = group->getParentModel();
+  const moveit::core::RobotModel& rmodel = group->getParentModel();
   const unsigned num_joints = group->getVariableCount();
   const unsigned num_points = trajectory.getWayPointCount();
 
@@ -930,7 +931,7 @@ bool TimeOptimalTrajectoryGeneration::computeTimeStamps(robot_trajectory::RobotT
   Eigen::VectorXd max_acceleration(num_joints);
   for (size_t j = 0; j < num_joints; ++j)
   {
-    const robot_model::VariableBounds& bounds = rmodel.getVariableBounds(vars[j]);
+    const moveit::core::VariableBounds& bounds = rmodel.getVariableBounds(vars[j]);
 
     // Limits need to be non-zero, otherwise we never exit
     max_velocity[j] = 1.0;
@@ -954,14 +955,14 @@ bool TimeOptimalTrajectoryGeneration::computeTimeStamps(robot_trajectory::RobotT
   std::list<Eigen::VectorXd> points;
   for (size_t p = 0; p < num_points; ++p)
   {
-    robot_state::RobotStatePtr waypoint = trajectory.getWayPointPtr(p);
+    moveit::core::RobotStatePtr waypoint = trajectory.getWayPointPtr(p);
     Eigen::VectorXd new_point(num_joints);
     bool diverse_point = (p == 0);
 
     for (size_t j = 0; j < num_joints; j++)
     {
       new_point[j] = waypoint->getVariablePosition(idx[j]);
-      if (p > 0 && std::abs(new_point[j] - points.back()[j]) > 0.001)
+      if (p > 0 && std::abs(new_point[j] - points.back()[j]) > min_angle_change_)
         diverse_point = true;
     }
 
@@ -972,8 +973,11 @@ bool TimeOptimalTrajectoryGeneration::computeTimeStamps(robot_trajectory::RobotT
   // Return trajectory with only the first waypoint if there are not multiple diverse points
   if (points.size() == 1)
   {
-    ROS_WARN_NAMED(LOGNAME, "Trajectory is not being parameterized since it only contains a single distinct waypoint.");
-    robot_state::RobotState waypoint = robot_state::RobotState(trajectory.getWayPoint(0));
+    ROS_DEBUG_NAMED(LOGNAME,
+                    "Trajectory is parameterized with 0.0 dynamics since it only contains a single distinct waypoint.");
+    moveit::core::RobotState waypoint = moveit::core::RobotState(trajectory.getWayPoint(0));
+    waypoint.zeroVelocities();
+    waypoint.zeroAccelerations();
     trajectory.clear();
     trajectory.addSuffixWayPoint(waypoint, 0.0);
     return true;
@@ -991,7 +995,7 @@ bool TimeOptimalTrajectoryGeneration::computeTimeStamps(robot_trajectory::RobotT
   size_t sample_count = std::ceil(parameterized.getDuration() / resample_dt_);
 
   // Resample and fill in trajectory
-  robot_state::RobotState waypoint = robot_state::RobotState(trajectory.getWayPoint(0));
+  moveit::core::RobotState waypoint = moveit::core::RobotState(trajectory.getWayPoint(0));
   trajectory.clear();
   double last_t = 0;
   for (size_t sample = 0; sample <= sample_count; ++sample)

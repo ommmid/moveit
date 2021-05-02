@@ -1,36 +1,36 @@
 /*********************************************************************
-* Software License Agreement (BSD License)
-*
-*  Copyright (c) 2010, Maxim Likhachev
-*  All rights reserved.
-*
-*  Redistribution and use in source and binary forms, with or without
-*  modification, are permitted provided that the following conditions
-*  are met:
-*
-*   * Redistributions of source code must retain the above copyright
-*     notice, this list of conditions and the following disclaimer.
-*   * Redistributions in binary form must reproduce the above
-*     copyright notice, this list of conditions and the following
-*     disclaimer in the documentation and/or other materials provided
-*     with the distribution.
-*   * Neither the name of Maxim Likhachev nor the names of its
-*     contributors may be used to endorse or promote products derived
-*     from this software without specific prior written permission.
-*
-*  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-*  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-*  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-*  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-*  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-*  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-*  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-*  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-*  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-*  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-*  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-*  POSSIBILITY OF SUCH DAMAGE.
-*********************************************************************/
+ * Software License Agreement (BSD License)
+ *
+ *  Copyright (c) 2010, Maxim Likhachev
+ *  All rights reserved.
+ *
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted provided that the following conditions
+ *  are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Maxim Likhachev nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ *  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ *  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ *  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ *  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ *  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ *  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ *  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+ *  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ *  POSSIBILITY OF SUCH DAMAGE.
+ *********************************************************************/
 
 /* Author: Benjamin Cohen, E. Gil Jones */
 
@@ -247,8 +247,7 @@ void EnvironmentChain3D::GetSuccs(int source_state_ID, std::vector<int>* succ_id
     req.group_name = planning_group_;
     if (!planning_parameters_.use_standard_collision_checking_)
     {
-      hy_world_->checkCollisionDistanceField(req, res, *hy_robot_->getCollisionRobotDistanceField().get(), state_,
-                                             gsr_);
+      hy_env_->checkCollisionDistanceField(req, res, *hy_env_->getCollisionRobotDistanceField().get(), state_, gsr_);
     }
     else
     {
@@ -436,18 +435,16 @@ bool EnvironmentChain3D::setupForMotionPlan(const planning_scene::PlanningSceneC
 
   if (!planning_parameters_.use_standard_collision_checking_)
   {
-    hy_world_ =
-        dynamic_cast<const collision_detection::CollisionWorldHybrid*>(planning_scene->getCollisionWorld().get());
-    if (!hy_world_)
+    hy_env_ = dynamic_cast<const collision_detection::CollisionWorldHybrid*>(planning_scene->getCollisionEnv().get());
+    if (!hy_env_)
     {
       ROS_WARN_STREAM("Could not initialize hybrid collision world from planning scene");
       mres.error_code.val = moveit_msgs::MoveItErrorCodes::COLLISION_CHECKING_UNAVAILABLE;
       return false;
     }
 
-    hy_robot_ =
-        dynamic_cast<const collision_detection::CollisionRobotHybrid*>(planning_scene->getCollisionRobot().get());
-    if (!hy_robot_)
+    hy_env_ = dynamic_cast<const collision_detection::CollisionRobotHybrid*>(planning_scene->getCollisionEnv().get());
+    if (!hy_env_)
     {
       ROS_WARN_STREAM("Could not initialize hybrid collision robot from planning scene");
       mres.error_code.val = moveit_msgs::MoveItErrorCodes::COLLISION_CHECKING_UNAVAILABLE;
@@ -473,8 +470,8 @@ bool EnvironmentChain3D::setupForMotionPlan(const planning_scene::PlanningSceneC
   req.group_name = planning_group_;
   if (!planning_parameters_.use_standard_collision_checking_)
   {
-    hy_world_->checkCollisionDistanceField(req, res, *hy_robot_->getCollisionRobotDistanceField().get(), state_,
-                                           planning_scene_->getAllowedCollisionMatrix(), gsr_);
+    hy_env_->checkCollisionDistanceField(req, res, *hy_env_->getCollisionRobotDistanceField().get(), state_,
+                                         planning_scene_->getAllowedCollisionMatrix(), gsr_);
   }
   else
   {
@@ -507,7 +504,7 @@ bool EnvironmentChain3D::setupForMotionPlan(const planning_scene::PlanningSceneC
                       gsr_->dfce_->distance_field_->getZNumCells());
 
     boost::shared_ptr<const distance_field::DistanceField> world_distance_field =
-        hy_world_->getCollisionWorldDistanceField()->getDistanceField();
+        hy_env_->getCollisionWorldDistanceField()->getDistanceField();
     if (world_distance_field->getXNumCells() != gsr_->dfce_->distance_field_->getXNumCells() ||
         world_distance_field->getYNumCells() != gsr_->dfce_->distance_field_->getYNumCells() ||
         world_distance_field->getZNumCells() != gsr_->dfce_->distance_field_->getZNumCells())
@@ -579,8 +576,8 @@ bool EnvironmentChain3D::setupForMotionPlan(const planning_scene::PlanningSceneC
   goal_state.setStateValues(goal_vals);
   if (!planning_parameters_.use_standard_collision_checking_)
   {
-    hy_world_->checkCollisionDistanceField(req, res, *hy_robot_->getCollisionRobotDistanceField().get(), goal_state,
-                                           planning_scene_->getAllowedCollisionMatrix(), gsr_);
+    hy_env_->checkCollisionDistanceField(req, res, *hy_env_->getCollisionRobotDistanceField().get(), goal_state,
+                                         planning_scene_->getAllowedCollisionMatrix(), gsr_);
   }
   else
   {
@@ -1101,8 +1098,8 @@ bool EnvironmentChain3D::interpolateAndCollisionCheck(const std::vector<double> 
     collision_detection::CollisionResult res;
     if (!planning_parameters_.use_standard_collision_checking_)
     {
-      hy_world_->checkCollisionDistanceField(req, res, *hy_robot_->getCollisionRobotDistanceField().get(),
-                                             interpolation_state_temp_, gsr_);
+      hy_env_->checkCollisionDistanceField(req, res, *hy_env_->getCollisionRobotDistanceField().get(),
+                                           interpolation_state_temp_, gsr_);
     }
     else
     {
@@ -1217,4 +1214,4 @@ void EnvironmentChain3D::attemptShortcut(const trajectory_msgs::JointTrajectory&
     }
   }
 }
-}
+}  // namespace sbpl_interface

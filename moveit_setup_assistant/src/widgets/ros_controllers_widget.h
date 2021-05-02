@@ -33,31 +33,27 @@
 
 /* Author: Mohamad Ayman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_ROS_CONTROLLERS_WIDGET_H
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_ROS_CONTROLLERS_WIDGET_H
+#pragma once
 
 // Qt
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QScrollArea>
-#include <QGroupBox>
-#include <QTableWidget>
-#include <QTreeWidget>
-#include <QStackedLayout>
-#include <QString>
+class QHBoxLayout;
+class QPushButton;
+class QStackedWidget;
+class QTreeWidget;
+class QTreeWidgetItem;
 
 // SA
 #ifndef Q_MOC_RUN
 #include <moveit/setup_assistant/tools/moveit_config_data.h>
 #endif
 
-#include "double_list_widget.h"  // for joints, links and subgroups pages
-#include "header_widget.h"
 #include "setup_screen_widget.h"  // a base class for screens in the setup assistant
-#include "controller_edit_widget.h"
 
 namespace moveit_setup_assistant
 {
+class DoubleListWidget;
+class ControllerEditWidget;
+
 class ROSControllersWidget : public SetupScreenWidget
 {
   Q_OBJECT
@@ -108,10 +104,10 @@ private Q_SLOTS:
   void editSelected();
 
   /// Called from Double List widget to highlight a joint
-  void previewSelectedJoints(std::vector<std::string> joints);
+  void previewSelectedJoints(const std::vector<std::string>& joints);
 
   /// Called from Double List widget to highlight a group
-  void previewSelectedGroup(std::vector<std::string> groups);
+  void previewSelectedGroup(const std::vector<std::string>& groups);
 
   /// Called when an item is seleceted from the controllers tree
   void previewSelected(QTreeWidgetItem* selected_item, int column);
@@ -129,7 +125,7 @@ private:
   QWidget* controllers_tree_widget_;
 
   /// For changing between table and different add/edit views
-  QStackedLayout* stacked_layout_;
+  QStackedWidget* stacked_widget_;
   ControllerEditWidget* controller_edit_widget_;
 
   QPushButton* btn_delete_;
@@ -160,5 +156,3 @@ private:
 };
 
 }  // namespace moveit_setup_assistant
-
-#endif

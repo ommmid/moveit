@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVE_GROUP_KINEMATICS_SERVICE_CAPABILITY_
-#define MOVEIT_MOVE_GROUP_KINEMATICS_SERVICE_CAPABILITY_
+#pragma once
 
 #include <moveit/move_group/move_group_capability.h>
 #include <moveit_msgs/GetPositionIK.h>
@@ -54,14 +53,12 @@ private:
   bool computeIKService(moveit_msgs::GetPositionIK::Request& req, moveit_msgs::GetPositionIK::Response& res);
   bool computeFKService(moveit_msgs::GetPositionFK::Request& req, moveit_msgs::GetPositionFK::Response& res);
 
-  void computeIK(
-      moveit_msgs::PositionIKRequest& req, moveit_msgs::RobotState& solution, moveit_msgs::MoveItErrorCodes& error_code,
-      robot_state::RobotState& rs,
-      const robot_state::GroupStateValidityCallbackFn& constraint = robot_state::GroupStateValidityCallbackFn()) const;
+  void computeIK(moveit_msgs::PositionIKRequest& req, moveit_msgs::RobotState& solution,
+                 moveit_msgs::MoveItErrorCodes& error_code, moveit::core::RobotState& rs,
+                 const moveit::core::GroupStateValidityCallbackFn& constraint =
+                     moveit::core::GroupStateValidityCallbackFn()) const;
 
   ros::ServiceServer fk_service_;
   ros::ServiceServer ik_service_;
 };
-}
-
-#endif
+}  // namespace move_group

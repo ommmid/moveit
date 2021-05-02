@@ -34,14 +34,13 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_TOOLS_COMPUTE_DEFAULT_COLLISIONS_
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_TOOLS_COMPUTE_DEFAULT_COLLISIONS_
+#pragma once
 
 #include <map>
 #include <moveit/macros/class_forward.h>
 namespace planning_scene
 {
-MOVEIT_CLASS_FORWARD(PlanningScene);
+MOVEIT_CLASS_FORWARD(PlanningScene);  // Defines PlanningScenePtr, ConstPtr, WeakPtr... etc
 }
 
 namespace moveit_setup_assistant
@@ -109,6 +108,4 @@ const std::string disabledReasonToString(DisabledReason reason);
  * \return reason as struct
  */
 DisabledReason disabledReasonFromString(const std::string& reason);
-}
-
-#endif
+}  // namespace moveit_setup_assistant

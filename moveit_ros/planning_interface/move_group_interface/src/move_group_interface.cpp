@@ -77,6 +77,8 @@ const std::string MoveGroupInterface::ROBOT_DESCRIPTION =
 
 const std::string GRASP_PLANNING_SERVICE_NAME = "plan_grasps";  // name of the service that can be used to plan grasps
 
+const std::string LOGNAME = "move_group_interface";
+
 namespace
 {
 enum ActiveTargetType
@@ -100,20 +102,20 @@ public:
     {
       std::string error = "Unable to construct robot model. Please make sure all needed information is on the "
                           "parameter server.";
-      ROS_FATAL_STREAM_NAMED("move_group_interface", error);
+      ROS_FATAL_STREAM_NAMED(LOGNAME, error);
       throw std::runtime_error(error);
     }
 
     if (!getRobotModel()->hasJointModelGroup(opt.group_name_))
     {
       std::string error = "Group '" + opt.group_name_ + "' was not found.";
-      ROS_FATAL_STREAM_NAMED("move_group_interface", error);
+      ROS_FATAL_STREAM_NAMED(LOGNAME, error);
       throw std::runtime_error(error);
     }
 
     joint_model_group_ = getRobotModel()->getJointModelGroup(opt.group_name_);
 
-    joint_state_target_.reset(new robot_state::RobotState(getRobotModel()));
+    joint_state_target_.reset(new moveit::core::RobotState(getRobotModel()));
     joint_state_target_->setToDefaultValues();
     active_target_ = JOINT;
     can_look_ = false;
@@ -124,8 +126,10 @@ public:
     goal_orientation_tolerance_ = 1e-3;  // ~0.1 deg
     allowed_planning_time_ = 5.0;
     num_planning_attempts_ = 1;
-    max_velocity_scaling_factor_ = 1.0;
-    max_acceleration_scaling_factor_ = 1.0;
+    node_handle_.param<double>("robot_description_planning/default_velocity_scaling_factor",
+                               max_velocity_scaling_factor_, 0.1);
+    node_handle_.param<double>("robot_description_planning/default_acceleration_scaling_factor",
+                               max_acceleration_scaling_factor_, 0.1);
     initializing_constraints_ = false;
 
     if (joint_model_group_->isChain())
@@ -172,14 +176,13 @@ public:
 
     plan_grasps_service_ = node_handle_.serviceClient<moveit_msgs::GraspPlanning>(GRASP_PLANNING_SERVICE_NAME);
 
-    ROS_INFO_STREAM_NAMED("move_group_interface", "Ready to take commands for planning group " << opt.group_name_
-                                                                                               << ".");
+    ROS_INFO_STREAM_NAMED(LOGNAME, "Ready to take commands for planning group " << opt.group_name_ << ".");
   }
 
   template <typename T>
-  void waitForAction(const T& action, const std::string& name, const ros::WallTime& timeout, double allotted_time)
+  void waitForAction(const T& action, const std::string& name, const ros::WallTime& timeout, double allotted_time) const
   {
-    ROS_DEBUG_NAMED("move_group_interface", "Waiting for move_group action server (%s)...", name.c_str());
+    ROS_DEBUG_NAMED(LOGNAME, "Waiting for move_group action server (%s)...", name.c_str());
 
     // wait for the server (and spin as needed)
     if (timeout == ros::WallTime())  // wait forever
@@ -195,8 +198,8 @@ public:
         }
         else  // in case of nodelets and specific callback queue implementations
         {
-          ROS_WARN_ONCE_NAMED("move_group_interface", "Non-default CallbackQueue: Waiting for external queue "
-                                                      "handling.");
+          ROS_WARN_ONCE_NAMED(LOGNAME, "Non-default CallbackQueue: Waiting for external queue "
+                                       "handling.");
         }
       }
     }
@@ -213,8 +216,8 @@ public:
         }
         else  // in case of nodelets and specific callback queue implementations
         {
-          ROS_WARN_ONCE_NAMED("move_group_interface", "Non-default CallbackQueue: Waiting for external queue "
-                                                      "handling.");
+          ROS_WARN_ONCE_NAMED(LOGNAME, "Non-default CallbackQueue: Waiting for external queue "
+                                       "handling.");
         }
       }
     }
@@ -228,7 +231,7 @@ public:
     }
     else
     {
-      ROS_DEBUG_NAMED("move_group_interface", "Connected to '%s'", name.c_str());
+      ROS_DEBUG_NAMED(LOGNAME, "Connected to '%s'", name.c_str());
     }
   }
 
@@ -248,12 +251,12 @@ public:
     return opt_;
   }
 
-  const robot_model::RobotModelConstPtr& getRobotModel() const
+  const moveit::core::RobotModelConstPtr& getRobotModel() const
   {
     return robot_model_;
   }
 
-  const robot_model::JointModelGroup* getJointModelGroup() const
+  const moveit::core::JointModelGroup* getJointModelGroup() const
   {
     return joint_model_group_;
   }
@@ -335,24 +338,51 @@ public:
     num_planning_attempts_ = num_planning_attempts;
   }
 
-  void setMaxVelocityScalingFactor(double max_velocity_scaling_factor)
+  void setMaxVelocityScalingFactor(double value)
   {
-    max_velocity_scaling_factor_ = max_velocity_scaling_factor;
+    setMaxScalingFactor(max_velocity_scaling_factor_, value, "velocity_scaling_factor", 0.1);
   }
 
-  void setMaxAccelerationScalingFactor(double max_acceleration_scaling_factor)
+  void setMaxAccelerationScalingFactor(double value)
   {
-    max_acceleration_scaling_factor_ = max_acceleration_scaling_factor;
+    setMaxScalingFactor(max_acceleration_scaling_factor_, value, "acceleration_scaling_factor", 0.1);
   }
 
-  robot_state::RobotState& getTargetRobotState()
+  void setMaxScalingFactor(double& variable, const double target_value, const char* factor_name, double fallback_value)
+  {
+    if (target_value > 1.0)
+    {
+      ROS_WARN_NAMED(LOGNAME, "Limiting max_%s (%.2f) to 1.0.", factor_name, target_value);
+      variable = 1.0;
+    }
+    else if (target_value <= 0.0)
+    {
+      node_handle_.param<double>(std::string("robot_description_planning/default_") + factor_name, variable,
+                                 fallback_value);
+      if (target_value < 0.0)
+      {
+        ROS_WARN_NAMED(LOGNAME, "max_%s < 0.0! Setting to default: %.2f.", factor_name, variable);
+      }
+    }
+    else
+    {
+      variable = target_value;
+    }
+  }
+
+  moveit::core::RobotState& getTargetRobotState()
   {
     return *joint_state_target_;
   }
 
-  void setStartState(const robot_state::RobotState& start_state)
+  const moveit::core::RobotState& getTargetRobotState() const
   {
-    considered_start_state_.reset(new robot_state::RobotState(start_state));
+    return *joint_state_target_;
+  }
+
+  void setStartState(const moveit::core::RobotState& start_state)
+  {
+    considered_start_state_.reset(new moveit::core::RobotState(start_state));
   }
 
   void setStartStateToCurrentState()
@@ -360,13 +390,13 @@ public:
     considered_start_state_.reset();
   }
 
-  robot_state::RobotStatePtr getStartState()
+  moveit::core::RobotStatePtr getStartState()
   {
     if (considered_start_state_)
       return considered_start_state_;
     else
     {
-      robot_state::RobotStatePtr s;
+      moveit::core::RobotStatePtr s;
       getCurrentState(s);
       return s;
     }
@@ -414,7 +444,7 @@ public:
         }
         else
         {
-          ROS_ERROR_NAMED("move_group_interface", "Unable to transform from frame '%s' to frame '%s'", frame.c_str(),
+          ROS_ERROR_NAMED(LOGNAME, "Unable to transform from frame '%s' to frame '%s'", frame.c_str(),
                           getRobotModel()->getModelFrame().c_str());
           return false;
         }
@@ -463,7 +493,7 @@ public:
     const std::string& eef = end_effector_link.empty() ? end_effector_link_ : end_effector_link;
     if (eef.empty())
     {
-      ROS_ERROR_NAMED("move_group_interface", "No end-effector to set the pose for");
+      ROS_ERROR_NAMED(LOGNAME, "No end-effector to set the pose for");
       return false;
     }
     else
@@ -495,7 +525,7 @@ public:
 
     // or return an error
     static const geometry_msgs::PoseStamped UNKNOWN;
-    ROS_ERROR_NAMED("move_group_interface", "Pose for end-effector '%s' not known.", eef.c_str());
+    ROS_ERROR_NAMED(LOGNAME, "Pose for end-effector '%s' not known.", eef.c_str());
     return UNKNOWN;
   }
 
@@ -510,7 +540,7 @@ public:
 
     // or return an error
     static const std::vector<geometry_msgs::PoseStamped> EMPTY;
-    ROS_ERROR_NAMED("move_group_interface", "Poses for end-effector '%s' are not known.", eef.c_str());
+    ROS_ERROR_NAMED(LOGNAME, "Poses for end-effector '%s' are not known.", eef.c_str());
     return EMPTY;
   }
 
@@ -543,7 +573,7 @@ public:
   {
     if (!current_state_monitor_)
     {
-      ROS_ERROR_NAMED("move_group_interface", "Unable to monitor current robot state");
+      ROS_ERROR_NAMED(LOGNAME, "Unable to monitor current robot state");
       return false;
     }
 
@@ -555,11 +585,11 @@ public:
     return true;
   }
 
-  bool getCurrentState(robot_state::RobotStatePtr& current_state, double wait_seconds = 1.0)
+  bool getCurrentState(moveit::core::RobotStatePtr& current_state, double wait_seconds = 1.0)
   {
     if (!current_state_monitor_)
     {
-      ROS_ERROR_NAMED("move_group_interface", "Unable to get current robot state");
+      ROS_ERROR_NAMED(LOGNAME, "Unable to get current robot state");
       return false;
     }
 
@@ -569,7 +599,7 @@ public:
 
     if (!current_state_monitor_->waitForCurrentState(ros::Time::now(), wait_seconds))
     {
-      ROS_ERROR_NAMED("move_group_interface", "Failed to fetch current robot state");
+      ROS_ERROR_NAMED(LOGNAME, "Failed to fetch current robot state");
       return false;
     }
 
@@ -578,7 +608,8 @@ public:
   }
 
   /** \brief Convert a vector of PoseStamped to a vector of PlaceLocation */
-  std::vector<moveit_msgs::PlaceLocation> posesToPlaceLocations(const std::vector<geometry_msgs::PoseStamped>& poses)
+  std::vector<moveit_msgs::PlaceLocation>
+  posesToPlaceLocations(const std::vector<geometry_msgs::PoseStamped>& poses) const
   {
     std::vector<moveit_msgs::PlaceLocation> locations;
     for (const geometry_msgs::PoseStamped& pose : poses)
@@ -598,8 +629,7 @@ public:
       location.place_pose = pose;
       locations.push_back(location);
     }
-    ROS_DEBUG_NAMED("move_group_interface", "Move group interface has %u place locations",
-                    (unsigned int)locations.size());
+    ROS_DEBUG_NAMED(LOGNAME, "Move group interface has %u place locations", (unsigned int)locations.size());
     return locations;
   }
 
@@ -607,20 +637,20 @@ public:
   {
     if (!place_action_client_)
     {
-      ROS_ERROR_STREAM_NAMED("move_group_interface", "Place action client not found");
+      ROS_ERROR_STREAM_NAMED(LOGNAME, "place action client not found");
       return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
     }
     if (!place_action_client_->isServerConnected())
     {
-      ROS_ERROR_STREAM_NAMED("move_group_interface", "Place action server not connected");
-      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+      ROS_WARN_STREAM_NAMED(LOGNAME, "place action server not connected");
+      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::COMMUNICATION_FAILURE);
     }
 
     place_action_client_->sendGoal(goal);
-    ROS_DEBUG_NAMED("move_group_interface", "Sent place goal with %d locations", (int)goal.place_locations.size());
+    ROS_DEBUG_NAMED(LOGNAME, "Sent place goal with %d locations", (int)goal.place_locations.size());
     if (!place_action_client_->waitForResult())
     {
-      ROS_INFO_STREAM_NAMED("move_group_interface", "Place action returned early");
+      ROS_INFO_STREAM_NAMED(LOGNAME, "Place action returned early");
     }
     if (place_action_client_->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
     {
@@ -628,8 +658,8 @@ public:
     }
     else
     {
-      ROS_WARN_STREAM_NAMED("move_group_interface", "Fail: " << place_action_client_->getState().toString() << ": "
-                                                             << place_action_client_->getState().getText());
+      ROS_WARN_STREAM_NAMED(LOGNAME, "Fail: " << place_action_client_->getState().toString() << ": "
+                                              << place_action_client_->getState().getText());
       return MoveItErrorCode(place_action_client_->getResult()->error_code);
     }
   }
@@ -638,19 +668,19 @@ public:
   {
     if (!pick_action_client_)
     {
-      ROS_ERROR_STREAM_NAMED("move_group_interface", "Pick action client not found");
+      ROS_ERROR_STREAM_NAMED(LOGNAME, "pick action client not found");
       return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
     }
     if (!pick_action_client_->isServerConnected())
     {
-      ROS_ERROR_STREAM_NAMED("move_group_interface", "Pick action server not connected");
-      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+      ROS_WARN_STREAM_NAMED(LOGNAME, "pick action server not connected");
+      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::COMMUNICATION_FAILURE);
     }
 
     pick_action_client_->sendGoal(goal);
     if (!pick_action_client_->waitForResult())
     {
-      ROS_INFO_STREAM_NAMED("move_group_interface", "Pickup action returned early");
+      ROS_INFO_STREAM_NAMED(LOGNAME, "Pickup action returned early");
     }
     if (pick_action_client_->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
     {
@@ -658,8 +688,8 @@ public:
     }
     else
     {
-      ROS_WARN_STREAM_NAMED("move_group_interface", "Fail: " << pick_action_client_->getState().toString() << ": "
-                                                             << pick_action_client_->getState().getText());
+      ROS_WARN_STREAM_NAMED(LOGNAME, "Fail: " << pick_action_client_->getState().toString() << ": "
+                                              << pick_action_client_->getState().getText());
       return MoveItErrorCode(pick_action_client_->getResult()->error_code);
     }
   }
@@ -676,8 +706,8 @@ public:
 
     if (objects.empty())
     {
-      ROS_ERROR_STREAM_NAMED("move_group_interface", "Asked for grasps for the object '"
-                                                         << object << "', but the object could not be found");
+      ROS_ERROR_STREAM_NAMED(LOGNAME,
+                             "Asked for grasps for the object '" << object << "', but the object could not be found");
       return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::INVALID_OBJECT_NAME);
     }
 
@@ -686,13 +716,13 @@ public:
 
   MoveItErrorCode planGraspsAndPick(const moveit_msgs::CollisionObject& object, bool plan_only = false)
   {
-    if (!plan_grasps_service_)
+    if (!plan_grasps_service_.exists())
     {
-      ROS_ERROR_STREAM_NAMED("move_group_interface", "Grasp planning service '"
-                                                         << GRASP_PLANNING_SERVICE_NAME
-                                                         << "' is not available."
-                                                            " This has to be implemented and started separately.");
-      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+      ROS_ERROR_STREAM_NAMED(LOGNAME, "Grasp planning service '"
+                                          << GRASP_PLANNING_SERVICE_NAME
+                                          << "' is not available."
+                                             " This has to be implemented and started separately.");
+      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::COMMUNICATION_FAILURE);
     }
 
     moveit_msgs::GraspPlanning::Request request;
@@ -702,11 +732,11 @@ public:
     request.target = object;
     request.support_surfaces.push_back(support_surface_);
 
-    ROS_DEBUG_NAMED("move_group_interface", "Calling grasp planner...");
+    ROS_DEBUG_NAMED(LOGNAME, "Calling grasp planner...");
     if (!plan_grasps_service_.call(request, response) ||
         response.error_code.val != moveit_msgs::MoveItErrorCodes::SUCCESS)
     {
-      ROS_ERROR_NAMED("move_group_interface", "Grasp planning failed. Unable to pick.");
+      ROS_ERROR_NAMED(LOGNAME, "Grasp planning failed. Unable to pick.");
       return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
     }
 
@@ -717,11 +747,13 @@ public:
   {
     if (!move_action_client_)
     {
+      ROS_ERROR_STREAM_NAMED(LOGNAME, "move action client not found");
       return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
     }
     if (!move_action_client_->isServerConnected())
     {
-      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+      ROS_WARN_STREAM_NAMED(LOGNAME, "move action server not connected");
+      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::COMMUNICATION_FAILURE);
     }
 
     moveit_msgs::MoveGroupGoal goal;
@@ -735,7 +767,7 @@ public:
     move_action_client_->sendGoal(goal);
     if (!move_action_client_->waitForResult())
     {
-      ROS_INFO_STREAM_NAMED("move_group_interface", "MoveGroup action returned early");
+      ROS_INFO_STREAM_NAMED(LOGNAME, "MoveGroup action returned early");
     }
     if (move_action_client_->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
     {
@@ -746,8 +778,8 @@ public:
     }
     else
     {
-      ROS_WARN_STREAM_NAMED("move_group_interface", "Fail: " << move_action_client_->getState().toString() << ": "
-                                                             << move_action_client_->getState().getText());
+      ROS_WARN_STREAM_NAMED(LOGNAME, "Fail: " << move_action_client_->getState().toString() << ": "
+                                              << move_action_client_->getState().getText());
       return MoveItErrorCode(move_action_client_->getResult()->error_code);
     }
   }
@@ -756,11 +788,13 @@ public:
   {
     if (!move_action_client_)
     {
+      ROS_ERROR_STREAM_NAMED(LOGNAME, "move action client not found");
       return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
     }
     if (!move_action_client_->isServerConnected())
     {
-      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+      ROS_WARN_STREAM_NAMED(LOGNAME, "move action server not connected");
+      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::COMMUNICATION_FAILURE);
     }
 
     moveit_msgs::MoveGroupGoal goal;
@@ -780,7 +814,7 @@ public:
 
     if (!move_action_client_->waitForResult())
     {
-      ROS_INFO_STREAM_NAMED("move_group_interface", "MoveGroup action returned early");
+      ROS_INFO_STREAM_NAMED(LOGNAME, "MoveGroup action returned early");
     }
 
     if (move_action_client_->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
@@ -789,21 +823,27 @@ public:
     }
     else
     {
-      ROS_INFO_STREAM_NAMED("move_group_interface", move_action_client_->getState().toString()
-                                                        << ": " << move_action_client_->getState().getText());
+      ROS_INFO_STREAM_NAMED(LOGNAME, move_action_client_->getState().toString()
+                                         << ": " << move_action_client_->getState().getText());
       return MoveItErrorCode(move_action_client_->getResult()->error_code);
     }
   }
 
-  MoveItErrorCode execute(const Plan& plan, bool wait)
+  MoveItErrorCode execute(const moveit_msgs::RobotTrajectory& trajectory, bool wait)
   {
+    if (!execute_action_client_)
+    {
+      ROS_ERROR_STREAM_NAMED(LOGNAME, "execute action client not found");
+      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+    }
     if (!execute_action_client_->isServerConnected())
     {
-      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::FAILURE);
+      ROS_WARN_STREAM_NAMED(LOGNAME, "execute action server not connected");
+      return MoveItErrorCode(moveit_msgs::MoveItErrorCodes::COMMUNICATION_FAILURE);
     }
 
     moveit_msgs::ExecuteTrajectoryGoal goal;
-    goal.trajectory = plan.trajectory_;
+    goal.trajectory = trajectory;
 
     execute_action_client_->sendGoal(goal);
     if (!wait)
@@ -813,7 +853,7 @@ public:
 
     if (!execute_action_client_->waitForResult())
     {
-      ROS_INFO_STREAM_NAMED("move_group_interface", "ExecuteTrajectory action returned early");
+      ROS_INFO_STREAM_NAMED(LOGNAME, "ExecuteTrajectory action returned early");
     }
 
     if (execute_action_client_->getState() == actionlib::SimpleClientGoalState::SUCCEEDED)
@@ -822,8 +862,8 @@ public:
     }
     else
     {
-      ROS_INFO_STREAM_NAMED("move_group_interface", execute_action_client_->getState().toString()
-                                                        << ": " << execute_action_client_->getState().getText());
+      ROS_INFO_STREAM_NAMED(LOGNAME, execute_action_client_->getState().toString()
+                                         << ": " << execute_action_client_->getState().getText());
       return MoveItErrorCode(execute_action_client_->getResult()->error_code);
     }
   }
@@ -836,7 +876,7 @@ public:
     moveit_msgs::GetCartesianPath::Response res;
 
     if (considered_start_state_)
-      robot_state::robotStateToRobotStateMsg(*considered_start_state_, req.start_state);
+      moveit::core::robotStateToRobotStateMsg(*considered_start_state_, req.start_state);
     else
       req.start_state.is_diff = true;
 
@@ -889,7 +929,7 @@ public:
     }
     if (l.empty())
     {
-      ROS_ERROR_NAMED("move_group_interface", "No known link to attach object '%s' to", object.c_str());
+      ROS_ERROR_NAMED(LOGNAME, "No known link to attach object '%s' to", object.c_str());
       return false;
     }
     moveit_msgs::AttachedCollisionObject aco;
@@ -972,13 +1012,13 @@ public:
   void allowLooking(bool flag)
   {
     can_look_ = flag;
-    ROS_INFO_NAMED("move_group_interface", "Looking around: %s", can_look_ ? "yes" : "no");
+    ROS_INFO_NAMED(LOGNAME, "Looking around: %s", can_look_ ? "yes" : "no");
   }
 
   void allowReplanning(bool flag)
   {
     can_replan_ = flag;
-    ROS_INFO_NAMED("move_group_interface", "Replanning: %s", can_replan_ ? "yes" : "no");
+    ROS_INFO_NAMED(LOGNAME, "Replanning: %s", can_replan_ ? "yes" : "no");
   }
 
   void setReplanningDelay(double delay)
@@ -992,7 +1032,7 @@ public:
     return replan_delay_;
   }
 
-  void constructMotionPlanRequest(moveit_msgs::MotionPlanRequest& request)
+  void constructMotionPlanRequest(moveit_msgs::MotionPlanRequest& request) const
   {
     request.group_name = opt_.group_name_;
     request.num_planning_attempts = num_planning_attempts_;
@@ -1003,7 +1043,7 @@ public:
     request.workspace_parameters = workspace_parameters_;
 
     if (considered_start_state_)
-      robot_state::robotStateToRobotStateMsg(*considered_start_state_, request.start_state);
+      moveit::core::robotStateToRobotStateMsg(*considered_start_state_, request.start_state);
     else
       request.start_state.is_diff = true;
 
@@ -1017,9 +1057,8 @@ public:
     {
       // find out how many goals are specified
       std::size_t goal_count = 0;
-      for (std::map<std::string, std::vector<geometry_msgs::PoseStamped> >::const_iterator it = pose_targets_.begin();
-           it != pose_targets_.end(); ++it)
-        goal_count = std::max(goal_count, it->second.size());
+      for (const auto& pose_target : pose_targets_)
+        goal_count = std::max(goal_count, pose_target.second.size());
 
       // start filling the goals;
       // each end effector has a number of possible poses (K) as valid goals
@@ -1027,13 +1066,12 @@ public:
       // to reach the goal that corresponds to the goals of the other end effectors
       request.goal_constraints.resize(goal_count);
 
-      for (std::map<std::string, std::vector<geometry_msgs::PoseStamped> >::const_iterator it = pose_targets_.begin();
-           it != pose_targets_.end(); ++it)
+      for (const auto& pose_target : pose_targets_)
       {
-        for (std::size_t i = 0; i < it->second.size(); ++i)
+        for (std::size_t i = 0; i < pose_target.second.size(); ++i)
         {
           moveit_msgs::Constraints c = kinematic_constraints::constructGoalConstraints(
-              it->first, it->second[i], goal_position_tolerance_, goal_orientation_tolerance_);
+              pose_target.first, pose_target.second[i], goal_position_tolerance_, goal_orientation_tolerance_);
           if (active_target_ == ORIENTATION)
             c.position_constraints.clear();
           if (active_target_ == POSITION)
@@ -1043,7 +1081,7 @@ public:
       }
     }
     else
-      ROS_ERROR_NAMED("move_group_interface", "Unable to construct MotionPlanRequest representation");
+      ROS_ERROR_NAMED(LOGNAME, "Unable to construct MotionPlanRequest representation");
 
     if (path_constraints_)
       request.path_constraints = *path_constraints_;
@@ -1051,13 +1089,13 @@ public:
       request.trajectory_constraints = *trajectory_constraints_;
   }
 
-  void constructGoal(moveit_msgs::MoveGroupGoal& goal)
+  void constructGoal(moveit_msgs::MoveGroupGoal& goal) const
   {
     constructMotionPlanRequest(goal.request);
   }
 
   moveit_msgs::PickupGoal constructPickupGoal(const std::string& object, std::vector<moveit_msgs::Grasp>&& grasps,
-                                              bool plan_only = false)
+                                              bool plan_only = false) const
   {
     moveit_msgs::PickupGoal goal;
     goal.target_name = object;
@@ -1084,7 +1122,8 @@ public:
   }
 
   moveit_msgs::PlaceGoal constructPlaceGoal(const std::string& object,
-                                            std::vector<moveit_msgs::PlaceLocation>&& locations, bool plan_only = false)
+                                            std::vector<moveit_msgs::PlaceLocation>&& locations,
+                                            bool plan_only = false) const
   {
     moveit_msgs::PlaceGoal goal;
     goal.group_name = opt_.group_name_;
@@ -1213,7 +1252,7 @@ private:
     }
     catch (std::exception& ex)
     {
-      ROS_ERROR_NAMED("move_group_interface", "%s", ex.what());
+      ROS_ERROR_NAMED(LOGNAME, "%s", ex.what());
     }
     initializing_constraints_ = false;
   }
@@ -1221,7 +1260,7 @@ private:
   Options opt_;
   ros::NodeHandle node_handle_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  robot_model::RobotModelConstPtr robot_model_;
+  moveit::core::RobotModelConstPtr robot_model_;
   planning_scene_monitor::CurrentStateMonitorPtr current_state_monitor_;
   std::unique_ptr<actionlib::SimpleActionClient<moveit_msgs::MoveGroupAction> > move_action_client_;
   std::unique_ptr<actionlib::SimpleActionClient<moveit_msgs::ExecuteTrajectoryAction> > execute_action_client_;
@@ -1229,7 +1268,7 @@ private:
   std::unique_ptr<actionlib::SimpleActionClient<moveit_msgs::PlaceAction> > place_action_client_;
 
   // general planning params
-  robot_state::RobotStatePtr considered_start_state_;
+  moveit::core::RobotStatePtr considered_start_state_;
   moveit_msgs::WorkspaceParameters workspace_parameters_;
   double allowed_planning_time_;
   std::string planner_id_;
@@ -1244,8 +1283,8 @@ private:
   double replan_delay_;
 
   // joint state goal
-  robot_state::RobotStatePtr joint_state_target_;
-  const robot_model::JointModelGroup* joint_model_group_;
+  moveit::core::RobotStatePtr joint_state_target_;
+  const moveit::core::JointModelGroup* joint_model_group_;
 
   // pose goal;
   // for each link we have a set of possible goal locations;
@@ -1304,13 +1343,13 @@ MoveGroupInterface::~MoveGroupInterface()
   delete impl_;
 }
 
-MoveGroupInterface::MoveGroupInterface(MoveGroupInterface&& other)
+MoveGroupInterface::MoveGroupInterface(MoveGroupInterface&& other) noexcept
   : remembered_joint_values_(std::move(other.remembered_joint_values_)), impl_(other.impl_)
 {
   other.impl_ = nullptr;
 }
 
-MoveGroupInterface& MoveGroupInterface::operator=(MoveGroupInterface&& other)
+MoveGroupInterface& MoveGroupInterface::operator=(MoveGroupInterface&& other) noexcept
 {
   if (this != &other)
   {
@@ -1328,22 +1367,14 @@ const std::string& MoveGroupInterface::getName() const
   return impl_->getOptions().group_name_;
 }
 
-const std::vector<std::string> MoveGroupInterface::getNamedTargets()
+const std::vector<std::string>& MoveGroupInterface::getNamedTargets() const
 {
-  const robot_model::RobotModelConstPtr& robot = getRobotModel();
-  const std::string& group = getName();
-  const robot_model::JointModelGroup* joint_group = robot->getJointModelGroup(group);
-
-  if (joint_group)
-  {
-    return joint_group->getDefaultStateNames();
-  }
-
-  std::vector<std::string> empty;
-  return empty;
+  // The pointer returned by getJointModelGroup is guaranteed by the class
+  // constructor to always be non-null
+  return impl_->getJointModelGroup()->getDefaultStateNames();
 }
 
-robot_model::RobotModelConstPtr MoveGroupInterface::getRobotModel() const
+moveit::core::RobotModelConstPtr MoveGroupInterface::getRobotModel() const
 {
   return impl_->getRobotModel();
 }
@@ -1353,13 +1384,13 @@ const ros::NodeHandle& MoveGroupInterface::getNodeHandle() const
   return impl_->getOptions().node_handle_;
 }
 
-bool MoveGroupInterface::getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription& desc)
+bool MoveGroupInterface::getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription& desc) const
 {
   return impl_->getInterfaceDescription(desc);
 }
 
 std::map<std::string, std::string> MoveGroupInterface::getPlannerParams(const std::string& planner_id,
-                                                                        const std::string& group)
+                                                                        const std::string& group) const
 {
   return impl_->getPlannerParams(planner_id, group);
 }
@@ -1417,12 +1448,22 @@ MoveItErrorCode MoveGroupInterface::move()
 
 MoveItErrorCode MoveGroupInterface::asyncExecute(const Plan& plan)
 {
-  return impl_->execute(plan, false);
+  return impl_->execute(plan.trajectory_, false);
+}
+
+MoveItErrorCode MoveGroupInterface::asyncExecute(const moveit_msgs::RobotTrajectory& trajectory)
+{
+  return impl_->execute(trajectory, false);
 }
 
 MoveItErrorCode MoveGroupInterface::execute(const Plan& plan)
 {
-  return impl_->execute(plan, true);
+  return impl_->execute(plan.trajectory_, true);
+}
+
+MoveItErrorCode MoveGroupInterface::execute(const moveit_msgs::RobotTrajectory& trajectory)
+{
+  return impl_->execute(trajectory, true);
 }
 
 MoveItErrorCode MoveGroupInterface::plan(Plan& plan)
@@ -1432,20 +1473,20 @@ MoveItErrorCode MoveGroupInterface::plan(Plan& plan)
 
 moveit_msgs::PickupGoal MoveGroupInterface::constructPickupGoal(const std::string& object,
                                                                 std::vector<moveit_msgs::Grasp> grasps,
-                                                                bool plan_only = false)
+                                                                bool plan_only = false) const
 {
   return impl_->constructPickupGoal(object, std::move(grasps), plan_only);
 }
 
 moveit_msgs::PlaceGoal MoveGroupInterface::constructPlaceGoal(const std::string& object,
                                                               std::vector<moveit_msgs::PlaceLocation> locations,
-                                                              bool plan_only = false)
+                                                              bool plan_only = false) const
 {
   return impl_->constructPlaceGoal(object, std::move(locations), plan_only);
 }
 
 std::vector<moveit_msgs::PlaceLocation>
-MoveGroupInterface::posesToPlaceLocations(const std::vector<geometry_msgs::PoseStamped>& poses)
+MoveGroupInterface::posesToPlaceLocations(const std::vector<geometry_msgs::PoseStamped>& poses) const
 {
   return impl_->posesToPlaceLocations(poses);
 }
@@ -1504,13 +1545,13 @@ void MoveGroupInterface::stop()
 
 void MoveGroupInterface::setStartState(const moveit_msgs::RobotState& start_state)
 {
-  robot_state::RobotStatePtr rs;
+  moveit::core::RobotStatePtr rs;
   impl_->getCurrentState(rs);
-  robot_state::robotStateMsgToRobotState(start_state, *rs);
+  moveit::core::robotStateMsgToRobotState(start_state, *rs);
   setStartState(*rs);
 }
 
-void MoveGroupInterface::setStartState(const robot_state::RobotState& start_state)
+void MoveGroupInterface::setStartState(const moveit::core::RobotState& start_state)
 {
   impl_->setStartState(start_state);
 }
@@ -1526,22 +1567,22 @@ void MoveGroupInterface::setRandomTarget()
   impl_->setTargetType(JOINT);
 }
 
-const std::vector<std::string>& MoveGroupInterface::getJointNames()
+const std::vector<std::string>& MoveGroupInterface::getJointNames() const
 {
   return impl_->getJointModelGroup()->getVariableNames();
 }
 
-const std::vector<std::string>& MoveGroupInterface::getLinkNames()
+const std::vector<std::string>& MoveGroupInterface::getLinkNames() const
 {
   return impl_->getJointModelGroup()->getLinkModelNames();
 }
 
-std::map<std::string, double> MoveGroupInterface::getNamedTargetValues(const std::string& name)
+std::map<std::string, double> MoveGroupInterface::getNamedTargetValues(const std::string& name) const
 {
   std::map<std::string, std::vector<double> >::const_iterator it = remembered_joint_values_.find(name);
   std::map<std::string, double> positions;
 
-  if (it != remembered_joint_values_.end())
+  if (it != remembered_joint_values_.cend())
   {
     std::vector<std::string> names = impl_->getJointModelGroup()->getVariableNames();
     for (size_t x = 0; x < names.size(); ++x)
@@ -1570,7 +1611,7 @@ bool MoveGroupInterface::setNamedTarget(const std::string& name)
       impl_->setTargetType(JOINT);
       return true;
     }
-    ROS_ERROR_NAMED("move_group_interface", "The requested named target '%s' does not exist", name.c_str());
+    ROS_ERROR_NAMED(LOGNAME, "The requested named target '%s' does not exist", name.c_str());
     return false;
   }
 }
@@ -1626,7 +1667,7 @@ bool MoveGroupInterface::setJointValueTarget(const std::vector<std::string>& var
   return impl_->getTargetRobotState().satisfiesBounds(impl_->getGoalJointTolerance());
 }
 
-bool MoveGroupInterface::setJointValueTarget(const robot_state::RobotState& rstate)
+bool MoveGroupInterface::setJointValueTarget(const moveit::core::RobotState& rstate)
 {
   impl_->setTargetType(JOINT);
   impl_->getTargetRobotState() = rstate;
@@ -1642,7 +1683,7 @@ bool MoveGroupInterface::setJointValueTarget(const std::string& joint_name, doub
 bool MoveGroupInterface::setJointValueTarget(const std::string& joint_name, const std::vector<double>& values)
 {
   impl_->setTargetType(JOINT);
-  const robot_model::JointModel* jm = impl_->getJointModelGroup()->getJointModel(joint_name);
+  const moveit::core::JointModel* jm = impl_->getJointModelGroup()->getJointModel(joint_name);
   if (jm && jm->getVariableCount() == values.size())
   {
     impl_->getTargetRobotState().setJointPositions(jm, values);
@@ -1694,12 +1735,12 @@ bool MoveGroupInterface::setApproximateJointValueTarget(const Eigen::Isometry3d&
   return setApproximateJointValueTarget(msg, end_effector_link);
 }
 
-const robot_state::RobotState& MoveGroupInterface::getJointValueTarget() const
+const moveit::core::RobotState& MoveGroupInterface::getJointValueTarget() const
 {
   return impl_->getTargetRobotState();
 }
 
-const robot_state::RobotState& MoveGroupInterface::getTargetRobotState() const
+const moveit::core::RobotState& MoveGroupInterface::getTargetRobotState() const
 {
   return impl_->getTargetRobotState();
 }
@@ -1725,7 +1766,7 @@ bool MoveGroupInterface::setEndEffectorLink(const std::string& link_name)
 
 bool MoveGroupInterface::setEndEffector(const std::string& eef_name)
 {
-  const robot_model::JointModelGroup* jmg = impl_->getRobotModel()->getEndEffector(eef_name);
+  const moveit::core::JointModelGroup* jmg = impl_->getRobotModel()->getEndEffector(eef_name);
   if (jmg)
     return setEndEffectorLink(jmg->getEndEffectorParentGroup().second);
   return false;
@@ -1799,7 +1840,7 @@ bool MoveGroupInterface::setPoseTargets(const std::vector<geometry_msgs::PoseSta
 {
   if (target.empty())
   {
-    ROS_ERROR_NAMED("move_group_interface", "No pose specified as goal target");
+    ROS_ERROR_NAMED(LOGNAME, "No pose specified as goal target");
     return false;
   }
   else
@@ -1966,36 +2007,36 @@ bool MoveGroupInterface::startStateMonitor(double wait)
   return impl_->startStateMonitor(wait);
 }
 
-std::vector<double> MoveGroupInterface::getCurrentJointValues()
+std::vector<double> MoveGroupInterface::getCurrentJointValues() const
 {
-  robot_state::RobotStatePtr current_state;
+  moveit::core::RobotStatePtr current_state;
   std::vector<double> values;
   if (impl_->getCurrentState(current_state))
     current_state->copyJointGroupPositions(getName(), values);
   return values;
 }
 
-std::vector<double> MoveGroupInterface::getRandomJointValues()
+std::vector<double> MoveGroupInterface::getRandomJointValues() const
 {
   std::vector<double> r;
   impl_->getJointModelGroup()->getVariableRandomPositions(impl_->getTargetRobotState().getRandomNumberGenerator(), r);
   return r;
 }
 
-geometry_msgs::PoseStamped MoveGroupInterface::getRandomPose(const std::string& end_effector_link)
+geometry_msgs::PoseStamped MoveGroupInterface::getRandomPose(const std::string& end_effector_link) const
 {
   const std::string& eef = end_effector_link.empty() ? getEndEffectorLink() : end_effector_link;
   Eigen::Isometry3d pose;
   pose.setIdentity();
   if (eef.empty())
-    ROS_ERROR_NAMED("move_group_interface", "No end-effector specified");
+    ROS_ERROR_NAMED(LOGNAME, "No end-effector specified");
   else
   {
-    robot_state::RobotStatePtr current_state;
+    moveit::core::RobotStatePtr current_state;
     if (impl_->getCurrentState(current_state))
     {
       current_state->setToRandomPositions(impl_->getJointModelGroup());
-      const robot_model::LinkModel* lm = current_state->getLinkModel(eef);
+      const moveit::core::LinkModel* lm = current_state->getLinkModel(eef);
       if (lm)
         pose = current_state->getGlobalLinkTransform(lm);
     }
@@ -2007,19 +2048,19 @@ geometry_msgs::PoseStamped MoveGroupInterface::getRandomPose(const std::string& 
   return pose_msg;
 }
 
-geometry_msgs::PoseStamped MoveGroupInterface::getCurrentPose(const std::string& end_effector_link)
+geometry_msgs::PoseStamped MoveGroupInterface::getCurrentPose(const std::string& end_effector_link) const
 {
   const std::string& eef = end_effector_link.empty() ? getEndEffectorLink() : end_effector_link;
   Eigen::Isometry3d pose;
   pose.setIdentity();
   if (eef.empty())
-    ROS_ERROR_NAMED("move_group_interface", "No end-effector specified");
+    ROS_ERROR_NAMED(LOGNAME, "No end-effector specified");
   else
   {
-    robot_state::RobotStatePtr current_state;
+    moveit::core::RobotStatePtr current_state;
     if (impl_->getCurrentState(current_state))
     {
-      const robot_model::LinkModel* lm = current_state->getLinkModel(eef);
+      const moveit::core::LinkModel* lm = current_state->getLinkModel(eef);
       if (lm)
         pose = current_state->getGlobalLinkTransform(lm);
     }
@@ -2031,18 +2072,18 @@ geometry_msgs::PoseStamped MoveGroupInterface::getCurrentPose(const std::string&
   return pose_msg;
 }
 
-std::vector<double> MoveGroupInterface::getCurrentRPY(const std::string& end_effector_link)
+std::vector<double> MoveGroupInterface::getCurrentRPY(const std::string& end_effector_link) const
 {
   std::vector<double> result;
   const std::string& eef = end_effector_link.empty() ? getEndEffectorLink() : end_effector_link;
   if (eef.empty())
-    ROS_ERROR_NAMED("move_group_interface", "No end-effector specified");
+    ROS_ERROR_NAMED(LOGNAME, "No end-effector specified");
   else
   {
-    robot_state::RobotStatePtr current_state;
+    moveit::core::RobotStatePtr current_state;
     if (impl_->getCurrentState(current_state))
     {
-      const robot_model::LinkModel* lm = current_state->getLinkModel(eef);
+      const moveit::core::LinkModel* lm = current_state->getLinkModel(eef);
       if (lm)
       {
         result.resize(3);
@@ -2073,9 +2114,9 @@ unsigned int MoveGroupInterface::getVariableCount() const
   return impl_->getJointModelGroup()->getVariableCount();
 }
 
-robot_state::RobotStatePtr MoveGroupInterface::getCurrentState(double wait)
+moveit::core::RobotStatePtr MoveGroupInterface::getCurrentState(double wait) const
 {
-  robot_state::RobotStatePtr current_state;
+  moveit::core::RobotStatePtr current_state;
   impl_->getCurrentState(current_state, wait);
   return current_state;
 }

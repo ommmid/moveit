@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_VISUALIZATION_ROBOT_STATE_DISPLAY_RVIZ_ROBOT_STATE_DISPLAY_
-#define MOVEIT_VISUALIZATION_ROBOT_STATE_DISPLAY_RVIZ_ROBOT_STATE_DISPLAY_
+#pragma once
 
 #include <rviz/display.h>
 
@@ -46,11 +45,6 @@
 #include <ros/ros.h>
 #endif
 
-namespace Ogre
-{
-class SceneNode;
-}
-
 namespace rviz
 {
 class Robot;
@@ -59,7 +53,7 @@ class BoolProperty;
 class FloatProperty;
 class RosTopicProperty;
 class ColorProperty;
-}
+}  // namespace rviz
 
 namespace moveit_rviz_plugin
 {
@@ -73,16 +67,20 @@ public:
   RobotStateDisplay();
   ~RobotStateDisplay() override;
 
+  void load(const rviz::Config& config) override;
   void update(float wall_dt, float ros_dt) override;
   void reset() override;
 
-  const robot_model::RobotModelConstPtr& getRobotModel() const
+  const moveit::core::RobotModelConstPtr& getRobotModel() const
   {
     return robot_model_;
   }
 
   void setLinkColor(const std::string& link_name, const QColor& color);
   void unsetLinkColor(const std::string& link_name);
+
+public Q_SLOTS:
+  void setVisible(bool visible);
 
 private Q_SLOTS:
 
@@ -128,11 +126,10 @@ protected:
 
   RobotStateVisualizationPtr robot_;
   rdf_loader::RDFLoaderPtr rdf_loader_;
-  robot_model::RobotModelConstPtr robot_model_;
-  robot_state::RobotStatePtr robot_state_;
+  moveit::core::RobotModelConstPtr robot_model_;
+  moveit::core::RobotStatePtr robot_state_;
   std::map<std::string, std_msgs::ColorRGBA> highlights_;
   bool update_state_;
-  bool load_robot_model_;  // for delayed robot initialization
 
   rviz::StringProperty* robot_description_property_;
   rviz::StringProperty* root_link_name_property_;
@@ -146,5 +143,3 @@ protected:
 };
 
 }  // namespace moveit_rviz_plugin
-
-#endif

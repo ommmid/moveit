@@ -56,14 +56,14 @@ int main(int argc, char** argv)
     std::string group = argv[1];
     ROS_INFO_STREAM("Evaluating IK for " << group);
 
-    const robot_model::JointModelGroup* jmg = rml.getModel()->getJointModelGroup(group);
+    const moveit::core::JointModelGroup* jmg = rml.getModel()->getJointModelGroup(group);
     if (jmg)
     {
       const kinematics::KinematicsBaseConstPtr& solver = jmg->getSolverInstance();
       if (solver)
       {
         const std::string& tip = solver->getTipFrame();
-        robot_state::RobotState state(rml.getModel());
+        moveit::core::RobotState state(rml.getModel());
         state.setToDefaultValues();
 
         ROS_INFO_STREAM("Tip Frame:  " << solver->getTipFrame());
@@ -87,14 +87,16 @@ int main(int argc, char** argv)
         for (unsigned int i = 0; i < test_count; ++i)
         {
           state.setToRandomPositions(jmg);
+          // getGlobalLinkTransform() returns a valid isometry by contract
           Eigen::Isometry3d pose = state.getGlobalLinkTransform(tip);
           state.setToRandomPositions(jmg);
           moveit::tools::Profiler::Begin("IK");
           state.setFromIK(jmg, pose);
           moveit::tools::Profiler::End("IK");
+          // getGlobalLinkTransform() returns a valid isometry by contract
           const Eigen::Isometry3d& pose_upd = state.getGlobalLinkTransform(tip);
-          Eigen::Isometry3d diff = pose_upd * pose.inverse();
-          double rot_err = (diff.rotation() - Eigen::Matrix3d::Identity()).norm();
+          Eigen::Isometry3d diff = pose_upd * pose.inverse();  // valid isometry
+          double rot_err = (diff.linear() - Eigen::Matrix3d::Identity()).norm();
           double trans_err = diff.translation().norm();
           moveit::tools::Profiler::Average("Rotation error", rot_err);
           moveit::tools::Profiler::Average("Translation error", trans_err);

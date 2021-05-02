@@ -36,9 +36,14 @@
 
 // SA
 #include "passive_joints_widget.h"
+#include "header_widget.h"
+#include "double_list_widget.h"
+
 // Qt
 #include <QFormLayout>
+#include <QLabel>
 #include <QMessageBox>
+#include <QTableWidget>
 
 namespace moveit_setup_assistant
 {
@@ -53,10 +58,10 @@ PassiveJointsWidget::PassiveJointsWidget(QWidget* parent, const MoveItConfigData
 
   // Top Header Area ------------------------------------------------
 
-  HeaderWidget* header =
-      new HeaderWidget("Define Passive Joints", "Specify the set of passive joints (not actuated). Joint "
-                                                "state is not expected to be published for these joints.",
-                       this);
+  HeaderWidget* header = new HeaderWidget("Define Passive Joints",
+                                          "Specify the set of passive joints (not actuated). Joint "
+                                          "state is not expected to be published for these joints.",
+                                          this);
   layout->addWidget(header);
 
   // Joints edit widget
@@ -84,7 +89,7 @@ void PassiveJointsWidget::focusGiven()
   joints_widget_->clearContents();
 
   // Retrieve pointer to the shared kinematic model
-  const robot_model::RobotModelConstPtr& model = config_data_->getRobotModel();
+  const moveit::core::RobotModelConstPtr& model = config_data_->getRobotModel();
 
   // Get the names of the all joints
   const std::vector<std::string>& joints = model->getJointModelNames();
@@ -126,14 +131,14 @@ void PassiveJointsWidget::selectionUpdated()
 // ******************************************************************************************
 // Called from Double List widget to highlight joints
 // ******************************************************************************************
-void PassiveJointsWidget::previewSelectedJoints(std::vector<std::string> joints)
+void PassiveJointsWidget::previewSelectedJoints(const std::vector<std::string>& joints)
 {
   // Unhighlight all links
   Q_EMIT unhighlightAll();
 
   for (const std::string& joint : joints)
   {
-    const robot_model::JointModel* joint_model = config_data_->getRobotModel()->getJointModel(joint);
+    const moveit::core::JointModel* joint_model = config_data_->getRobotModel()->getJointModel(joint);
 
     // Check that a joint model was found
     if (!joint_model)

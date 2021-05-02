@@ -36,8 +36,7 @@
    Desc:   Wraps a trajectory_visualization playback class for Rviz into a stand alone display
 */
 
-#ifndef MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_DISPLAY
-#define MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_DISPLAY
+#pragma once
 
 #include <rviz/display.h>
 
@@ -66,6 +65,7 @@ public:
 
   void loadRobotModel();
 
+  void load(const rviz::Config& config) override;
   void update(float wall_dt, float ros_dt) override;
   void reset() override;
 
@@ -87,14 +87,11 @@ protected:
 
   // Load robot model
   rdf_loader::RDFLoaderPtr rdf_loader_;
-  robot_model::RobotModelConstPtr robot_model_;
-  robot_state::RobotStatePtr robot_state_;
-  bool load_robot_model_;  // for delayed robot initialization
+  moveit::core::RobotModelConstPtr robot_model_;
+  moveit::core::RobotStatePtr robot_state_;
 
   // Properties
   rviz::StringProperty* robot_description_property_;
 };
 
 }  // namespace moveit_rviz_plugin
-
-#endif

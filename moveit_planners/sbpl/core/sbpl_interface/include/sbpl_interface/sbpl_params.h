@@ -32,15 +32,13 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#ifndef _SBPL_PARAMS_H_
-#define _SBPL_PARAMS_H_
+#pragma once
 
 #include <iostream>
 #include <string>
 #include <vector>
 #include <iterator>
 #include <ros/ros.h>
-#include <angles/angles.h>
 #include <sstream>
 #include <boost/algorithm/string.hpp>
 
@@ -203,6 +201,4 @@ public:
 
   std::vector<std::string> motion_primitive_type_names_;
 };
-}
-
-#endif
+}  // namespace sbpl_interface

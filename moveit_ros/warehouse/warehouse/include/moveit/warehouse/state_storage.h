@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVEIT_WAREHOUSE_STATE_STORAGE_
-#define MOVEIT_MOVEIT_WAREHOUSE_STATE_STORAGE_
+#pragma once
 
 #include <moveit/warehouse/moveit_message_storage.h>
 #include <moveit/macros/class_forward.h>
@@ -46,7 +45,7 @@ namespace moveit_warehouse
 typedef warehouse_ros::MessageWithMetadata<moveit_msgs::RobotState>::ConstPtr RobotStateWithMetadata;
 typedef warehouse_ros::MessageCollection<moveit_msgs::RobotState>::Ptr RobotStateCollection;
 
-MOVEIT_CLASS_FORWARD(RobotStateStorage);
+MOVEIT_CLASS_FORWARD(RobotStateStorage);  // Defines RobotStateStoragePtr, ConstPtr, WeakPtr... etc
 
 class RobotStateStorage : public MoveItMessageStorage
 {
@@ -78,6 +77,4 @@ private:
 
   RobotStateCollection state_collection_;
 };
-}
-
-#endif
+}  // namespace moveit_warehouse

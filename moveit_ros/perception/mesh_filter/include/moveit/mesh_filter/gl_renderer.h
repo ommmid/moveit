@@ -34,8 +34,7 @@
 
 /* Author: Suat Gedikli */
 
-#ifndef MOVEIT_MESH_FILTER_GLRENDERER_
-#define MOVEIT_MESH_FILTER_GLRENDERER_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <GL/glew.h>
@@ -49,7 +48,7 @@
 
 namespace mesh_filter
 {
-MOVEIT_CLASS_FORWARD(GLRenderer);
+MOVEIT_CLASS_FORWARD(GLRenderer);  // Defines GLRendererPtr, ConstPtr, WeakPtr... etc
 
 /** \brief Abstracts the OpenGL frame buffer objects, and provides an interface to render meshes, and retrieve the color
  * and depth ap from opengl.
@@ -303,4 +302,3 @@ private:
   static bool glutInitialized_;
 };
 }  // namespace mesh_filter
-#endif

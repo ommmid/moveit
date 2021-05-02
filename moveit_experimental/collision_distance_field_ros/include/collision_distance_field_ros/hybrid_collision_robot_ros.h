@@ -34,8 +34,7 @@
 
 /** \author E. Gil Jones */
 
-#ifndef _COLLISION_ROBOT_HYBRID_ROS_H_
-#define _COLLISION_ROBOT_HYBRID_ROS_H_
+#pragma once
 
 #include <ros/ros.h>
 #include <collision_distance_field_ros/collision_distance_field_ros_helpers.h>
@@ -62,6 +61,4 @@ public:
                                  collision_tolerance, max_propogation_distance);
   }
 };
-}
-
-#endif
+}  // namespace collision_detection

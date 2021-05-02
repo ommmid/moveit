@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVEIT_WAREHOUSE_PLANNING_SCENE_STORAGE_
-#define MOVEIT_MOVEIT_WAREHOUSE_PLANNING_SCENE_STORAGE_
+#pragma once
 
 #include "moveit/warehouse/moveit_message_storage.h"
 #include <moveit/macros/class_forward.h>
@@ -53,7 +52,7 @@ typedef warehouse_ros::MessageCollection<moveit_msgs::PlanningScene>::Ptr Planni
 typedef warehouse_ros::MessageCollection<moveit_msgs::MotionPlanRequest>::Ptr MotionPlanRequestCollection;
 typedef warehouse_ros::MessageCollection<moveit_msgs::RobotTrajectory>::Ptr RobotTrajectoryCollection;
 
-MOVEIT_CLASS_FORWARD(PlanningSceneStorage);
+MOVEIT_CLASS_FORWARD(PlanningSceneStorage);  // Defines PlanningSceneStoragePtr, ConstPtr, WeakPtr... etc
 
 class PlanningSceneStorage : public MoveItMessageStorage
 {
@@ -119,6 +118,4 @@ private:
   MotionPlanRequestCollection motion_plan_request_collection_;
   RobotTrajectoryCollection robot_trajectory_collection_;
 };
-}
-
-#endif
+}  // namespace moveit_warehouse

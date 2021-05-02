@@ -34,8 +34,7 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_VISUALIZATION
-#define MOVEIT_TRAJECTORY_RVIZ_PLUGIN__TRAJECTORY_VISUALIZATION
+#pragma once
 
 #include <boost/thread/mutex.hpp>
 #include <moveit/macros/class_forward.h>
@@ -65,11 +64,11 @@ class RosTopicProperty;
 class EditableEnumProperty;
 class ColorProperty;
 class MovableText;
-}
+}  // namespace rviz
 
 namespace moveit_rviz_plugin
 {
-MOVEIT_CLASS_FORWARD(TrajectoryVisualization);
+MOVEIT_CLASS_FORWARD(TrajectoryVisualization);  // Defines TrajectoryVisualizationPtr, ConstPtr, WeakPtr... etc
 
 class TrajectoryVisualization : public QObject
 {
@@ -90,7 +89,7 @@ public:
   virtual void reset();
 
   void onInitialize(Ogre::SceneNode* scene_node, rviz::DisplayContext* context, const ros::NodeHandle& update_nh);
-  void onRobotModelLoaded(const robot_model::RobotModelConstPtr& robot_model);
+  void onRobotModelLoaded(const moveit::core::RobotModelConstPtr& robot_model);
   void onEnable();
   void onDisable();
   void setName(const QString& name);
@@ -128,6 +127,7 @@ protected:
 
   // Handles actually drawing the robot along motion plans
   RobotStateVisualizationPtr display_path_robot_;
+  std_msgs::ColorRGBA default_attached_object_color_;
 
   // Handle colouring of robot
   void setRobotColor(rviz::Robot* robot, const QColor& color);
@@ -135,7 +135,7 @@ protected:
 
   robot_trajectory::RobotTrajectoryPtr displaying_trajectory_message_;
   robot_trajectory::RobotTrajectoryPtr trajectory_message_to_display_;
-  std::vector<rviz::Robot*> trajectory_trail_;
+  std::vector<RobotStateVisualizationUniquePtr> trajectory_trail_;
   ros::Subscriber trajectory_topic_sub_;
   bool animating_path_;
   bool drop_displaying_trajectory_;
@@ -143,8 +143,8 @@ protected:
   float current_state_time_;
   boost::mutex update_trajectory_message_;
 
-  robot_model::RobotModelConstPtr robot_model_;
-  robot_state::RobotStatePtr robot_state_;
+  moveit::core::RobotModelConstPtr robot_model_;
+  moveit::core::RobotStatePtr robot_state_;
 
   // Pointers from parent display taht we save
   rviz::Display* display_;  // the parent display that this class populates
@@ -170,5 +170,3 @@ protected:
 };
 
 }  // namespace moveit_rviz_plugin
-
-#endif

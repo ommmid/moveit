@@ -34,19 +34,18 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_PLANNING_SCENE_RVIZ_PLUGIN_PLANNING_LINK_UPDATER_
-#define MOVEIT_PLANNING_SCENE_RVIZ_PLUGIN_PLANNING_LINK_UPDATER_
+#pragma once
 
 #include <rviz/robot/link_updater.h>
 #include <moveit/robot_state/robot_state.h>
 
 namespace moveit_rviz_plugin
 {
-/** \brief Update the links of an rviz::Robot using a robot_state::RobotState */
+/** \brief Update the links of an rviz::Robot using a moveit::core::RobotState */
 class PlanningLinkUpdater : public rviz::LinkUpdater
 {
 public:
-  PlanningLinkUpdater(const robot_state::RobotStateConstPtr& state) : kinematic_state_(state)
+  PlanningLinkUpdater(const moveit::core::RobotStateConstPtr& state) : kinematic_state_(state)
   {
   }
 
@@ -55,8 +54,6 @@ public:
                          Ogre::Quaternion& collision_orientation) const override;
 
 private:
-  robot_state::RobotStateConstPtr kinematic_state_;
+  moveit::core::RobotStateConstPtr kinematic_state_;
 };
-}
-
-#endif
+}  // namespace moveit_rviz_plugin

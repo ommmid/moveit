@@ -53,7 +53,17 @@ PlanningSceneRender::PlanningSceneRender(Ogre::SceneNode* node, rviz::DisplayCon
 
 PlanningSceneRender::~PlanningSceneRender()
 {
-  context_->getSceneManager()->destroySceneNode(planning_scene_geometry_node_->getName());
+  context_->getSceneManager()->destroySceneNode(planning_scene_geometry_node_);
+}
+
+void PlanningSceneRender::updateRobotPosition(const planning_scene::PlanningSceneConstPtr& scene)
+{
+  if (scene_robot_)
+  {
+    auto rs = std::make_shared<moveit::core::RobotState>(scene->getCurrentState());
+    rs->update();
+    scene_robot_->updateKinematicState(rs);
+  }
 }
 
 void PlanningSceneRender::clear()
@@ -74,7 +84,7 @@ void PlanningSceneRender::renderPlanningScene(const planning_scene::PlanningScen
 
   if (scene_robot_)
   {
-    robot_state::RobotState* rs = new robot_state::RobotState(scene->getCurrentState());
+    moveit::core::RobotState* rs = new moveit::core::RobotState(scene->getCurrentState());
     rs->update();
 
     std_msgs::ColorRGBA color;
@@ -84,13 +94,13 @@ void PlanningSceneRender::renderPlanningScene(const planning_scene::PlanningScen
     color.a = 1.0f;
     planning_scene::ObjectColorMap color_map;
     scene->getKnownObjectColors(color_map);
-    scene_robot_->update(robot_state::RobotStateConstPtr(rs), color, color_map);
+    scene_robot_->update(moveit::core::RobotStateConstPtr(rs), color, color_map);
   }
 
   const std::vector<std::string>& ids = scene->getWorld()->getObjectIds();
   for (const std::string& id : ids)
   {
-    collision_detection::CollisionWorld::ObjectConstPtr object = scene->getWorld()->getObject(id);
+    collision_detection::CollisionEnv::ObjectConstPtr object = scene->getWorld()->getObject(id);
     rviz::Color color = default_env_color;
     float alpha = default_scene_alpha;
     if (scene->hasObjectColor(id))

@@ -34,18 +34,14 @@
 
 /* Author: Dave Coleman, Michael 'v4hn' Goerner */
 
-#ifndef MOVEIT_ROS_MOVEIT_SETUP_ASSISTANT_WIDGETS_AUTHOR_INFORMATION_WIDGET_
-#define MOVEIT_ROS_MOVEIT_SETUP_ASSISTANT_WIDGETS_AUTHOR_INFORMATION_WIDGET_
+#pragma once
 
-#include <QWidget>
-#include <QString>
-#include <QLineEdit>
+class QLineEdit;
 
 #ifndef Q_MOC_RUN
 #include <moveit/setup_assistant/tools/moveit_config_data.h>
 #endif
 
-#include "header_widget.h"
 #include "setup_screen_widget.h"  // a base class for screens in the setup assistant
 
 namespace moveit_setup_assistant
@@ -86,5 +82,3 @@ private:
 };
 
 }  // namespace moveit_setup_assistant
-
-#endif

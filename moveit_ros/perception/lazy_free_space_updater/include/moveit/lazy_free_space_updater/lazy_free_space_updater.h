@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_OCCUPANCY_MAP_MONITOR_LAZY_FREE_SPACE_UPDATER_
-#define MOVEIT_OCCUPANCY_MAP_MONITOR_LAZY_FREE_SPACE_UPDATER_
+#pragma once
 
 #include <moveit/occupancy_map_monitor/occupancy_map.h>
 #include <boost/thread.hpp>
@@ -88,6 +87,4 @@ private:
   boost::thread update_thread_;
   boost::thread process_thread_;
 };
-}
-
-#endif /* MOVEIT_OCCUPANCY_MAP_UPDATER_H_ */
+}  // namespace occupancy_map_monitor

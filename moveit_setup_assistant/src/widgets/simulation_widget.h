@@ -33,20 +33,17 @@
 
 /* Author: Mohamad Ayman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_SIMULATION_WIDGET_H
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_SIMULATION_WIDGET_H
+#pragma once
 
 // Qt
-#include <QScrollArea>
-#include <QTextEdit>
-#include <QString>
+class QLabel;
+class QTextEdit;
 
 // SA
 #ifndef Q_MOC_RUN
 #include <moveit/setup_assistant/tools/moveit_config_data.h>
 #endif
 
-#include "header_widget.h"
 #include "setup_screen_widget.h"  // a base class for screens in the setup assistant
 
 namespace moveit_setup_assistant
@@ -93,5 +90,3 @@ private:
 };
 
 }  // namespace moveit_setup_assistant
-
-#endif

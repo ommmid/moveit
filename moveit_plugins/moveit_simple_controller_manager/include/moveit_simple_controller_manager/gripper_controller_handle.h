@@ -35,8 +35,7 @@
 
 /* Author: Michael Ferguson, Ioan Sucan, E. Gil Jones */
 
-#ifndef MOVEIT_PLUGINS_GRIPPER_CONTROLLER_HANDLE
-#define MOVEIT_PLUGINS_GRIPPER_CONTROLLER_HANDLE
+#pragma once
 
 #include <moveit_simple_controller_manager/action_based_controller_handle.h>
 #include <control_msgs/GripperCommandAction.h>
@@ -102,7 +101,7 @@ public:
 
     if (gripper_joint_indexes.empty())
     {
-      ROS_WARN_NAMED("GripperController", "No command_joint was specified for the MoveIt! controller gripper handle. \
+      ROS_WARN_NAMED("GripperController", "No command_joint was specified for the MoveIt controller gripper handle. \
                       Please see GripperControllerHandle::addCommandJoint() and \
                       GripperControllerHandle::setCommandJoint(). Assuming index 0.");
       gripper_joint_indexes.push_back(0);
@@ -118,10 +117,8 @@ public:
     ROS_DEBUG_NAMED("GripperController", "Sending command from trajectory point %d", tpoint);
 
     // fill in goal from last point
-    for (std::size_t i = 0; i < gripper_joint_indexes.size(); ++i)
+    for (std::size_t idx : gripper_joint_indexes)
     {
-      std::size_t idx = gripper_joint_indexes[i];
-
       if (trajectory.joint_trajectory.points[tpoint].positions.size() <= idx)
       {
         ROS_ERROR_NAMED("GripperController", "GripperController expects a joint trajectory with one \
@@ -171,7 +168,7 @@ public:
 
 private:
   void controllerDoneCallback(const actionlib::SimpleClientGoalState& state,
-                              const control_msgs::GripperCommandResultConstPtr& result)
+                              const control_msgs::GripperCommandResultConstPtr& /* result */)
   {
     if (state == actionlib::SimpleClientGoalState::ABORTED && allow_failure_)
       finishControllerExecution(actionlib::SimpleClientGoalState::SUCCEEDED);
@@ -184,7 +181,7 @@ private:
     ROS_DEBUG_STREAM_NAMED("GripperController", name_ << " started execution");
   }
 
-  void controllerFeedbackCallback(const control_msgs::GripperCommandFeedbackConstPtr& feedback)
+  void controllerFeedbackCallback(const control_msgs::GripperCommandFeedbackConstPtr& /* feedback */)
   {
   }
 
@@ -218,5 +215,3 @@ private:
 };
 
 }  // end namespace moveit_simple_controller_manager
-
-#endif  // MOVEIT_PLUGINS_GRIPPER_CONTROLLER_HANDLE

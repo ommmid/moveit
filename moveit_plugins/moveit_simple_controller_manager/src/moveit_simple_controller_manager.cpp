@@ -86,8 +86,8 @@ public:
 
         if (!isArray(controller_list[i]["joints"]))
         {
-          ROS_ERROR_STREAM_NAMED(LOGNAME, "The list of joints for controller " << name
-                                                                               << " is not specified as an array");
+          ROS_ERROR_STREAM_NAMED(LOGNAME,
+                                 "The list of joints for controller " << name << " is not specified as an array");
           continue;
         }
 
@@ -113,8 +113,7 @@ public:
                 static_cast<GripperControllerHandle*>(new_handle.get())
                     ->setCommandJoint(controller_list[i]["command_joint"]);
               else
-                static_cast<GripperControllerHandle*>(new_handle.get())
-                    ->setCommandJoint(controller_list[i]["joints"][0]);
+                static_cast<GripperControllerHandle*>(new_handle.get())->setCommandJoint(controller_list[i]["joints"][0]);
             }
 
             if (controller_list[i].hasMember("allow_failure"))
@@ -145,7 +144,13 @@ public:
           continue;
         }
 
-        /* add list of joints, used by controller manager and MoveIt! */
+        moveit_controller_manager::MoveItControllerManager::ControllerState state;
+        state.default_ = controller_list[i].hasMember("default") ? (bool)controller_list[i]["default"] : false;
+        state.active_ = true;
+
+        controller_states_[name] = state;
+
+        /* add list of joints, used by controller manager and MoveIt */
         for (int j = 0; j < controller_list[i]["joints"].size(); ++j)
           new_handle->addJoint(std::string(controller_list[i]["joints"][j]));
 
@@ -213,27 +218,23 @@ public:
     }
     else
     {
-      ROS_WARN_NAMED(LOGNAME, "The joints for controller '%s' are not known. Perhaps the controller configuration is "
-                              "not loaded on the param server?",
+      ROS_WARN_NAMED(LOGNAME,
+                     "The joints for controller '%s' are not known. Perhaps the controller configuration is "
+                     "not loaded on the param server?",
                      name.c_str());
       joints.clear();
     }
   }
 
-  /*
-   * Controllers are all active and default -- that's what makes this thing simple.
-   */
   moveit_controller_manager::MoveItControllerManager::ControllerState
   getControllerState(const std::string& name) override
   {
-    moveit_controller_manager::MoveItControllerManager::ControllerState state;
-    state.active_ = true;
-    state.default_ = true;
-    return state;
+    return controller_states_[name];
   }
 
   /* Cannot switch our controllers */
-  bool switchControllers(const std::vector<std::string>& activate, const std::vector<std::string>& deactivate) override
+  bool switchControllers(const std::vector<std::string>& /* activate */,
+                         const std::vector<std::string>& /* deactivate */) override
   {
     return false;
   }
@@ -241,6 +242,7 @@ public:
 protected:
   ros::NodeHandle node_handle_;
   std::map<std::string, ActionBasedControllerHandleBasePtr> controllers_;
+  std::map<std::string, moveit_controller_manager::MoveItControllerManager::ControllerState> controller_states_;
 };
 
 }  // end namespace moveit_simple_controller_manager

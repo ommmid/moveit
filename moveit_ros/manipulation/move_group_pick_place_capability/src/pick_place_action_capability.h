@@ -34,8 +34,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_MOVE_GROUP_PICK_PLACE_ACTION_CAPABILITY_
-#define MOVEIT_MOVE_GROUP_PICK_PLACE_ACTION_CAPABILITY_
+#pragma once
 
 #include <moveit/move_group/move_group_capability.h>
 #include <actionlib/server/simple_action_server.h>
@@ -57,8 +56,7 @@ private:
   void executePickupCallback(const moveit_msgs::PickupGoalConstPtr& goal);
   void executePlaceCallback(const moveit_msgs::PlaceGoalConstPtr& goal);
 
-  void executePickupCallbackPlanOnly(const moveit_msgs::PickupGoalConstPtr& goal,
-                                     moveit_msgs::PickupResult& action_res);
+  void executePickupCallbackPlanOnly(const moveit_msgs::PickupGoalConstPtr& goal, moveit_msgs::PickupResult& action_res);
   void executePickupCallbackPlanAndExecute(const moveit_msgs::PickupGoalConstPtr& goal,
                                            moveit_msgs::PickupResult& action_res);
 
@@ -100,6 +98,4 @@ private:
 
   ros::ServiceClient grasp_planning_service_;
 };
-}
-
-#endif
+}  // namespace move_group

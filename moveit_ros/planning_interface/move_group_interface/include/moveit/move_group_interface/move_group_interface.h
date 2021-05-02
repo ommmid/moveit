@@ -35,11 +35,9 @@
 
 /* Author: Ioan Sucan, Sachin Chitta */
 
-#ifndef MOVEIT_MOVE_GROUP_INTERFACE_MOVE_GROUP_INTERFACE_
-#define MOVEIT_MOVE_GROUP_INTERFACE_MOVE_GROUP_INTERFACE_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
-#include <moveit/macros/deprecation.h>
 #include <moveit/robot_state/robot_state.h>
 #include <moveit_msgs/RobotTrajectory.h>
 #include <moveit_msgs/RobotState.h>
@@ -54,11 +52,12 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <actionlib/client/simple_action_client.h>
 #include <memory>
+#include <utility>
 #include <tf2_ros/buffer.h>
 
 namespace moveit
 {
-/** \brief Simple interface to MoveIt! components */
+/** \brief Simple interface to MoveIt components */
 namespace planning_interface
 {
 class MoveItErrorCode : public moveit_msgs::MoveItErrorCodes
@@ -90,7 +89,7 @@ public:
   }
 };
 
-MOVEIT_CLASS_FORWARD(MoveGroupInterface);
+MOVEIT_CLASS_FORWARD(MoveGroupInterface);  // Defines MoveGroupInterfacePtr, ConstPtr, WeakPtr... etc
 
 /** \class MoveGroupInterface move_group_interface.h moveit/planning_interface/move_group_interface.h
 
@@ -106,9 +105,9 @@ public:
   /** \brief Specification of options to use when constructing the MoveGroupInterface class */
   struct Options
   {
-    Options(const std::string& group_name, const std::string& desc = ROBOT_DESCRIPTION,
+    Options(std::string group_name, std::string desc = ROBOT_DESCRIPTION,
             const ros::NodeHandle& node_handle = ros::NodeHandle())
-      : group_name_(group_name), robot_description_(desc), node_handle_(node_handle)
+      : group_name_(std::move(group_name)), robot_description_(std::move(desc)), node_handle_(node_handle)
     {
     }
 
@@ -119,7 +118,7 @@ public:
     std::string robot_description_;
 
     /// Optionally, an instance of the RobotModel to use can be also specified
-    robot_model::RobotModelConstPtr robot_model_;
+    moveit::core::RobotModelConstPtr robot_model_;
 
     ros::NodeHandle node_handle_;
   };
@@ -152,8 +151,8 @@ public:
   MoveGroupInterface(const Options& opt,
                      const std::shared_ptr<tf2_ros::Buffer>& tf_buffer = std::shared_ptr<tf2_ros::Buffer>(),
                      const ros::WallDuration& wait_for_servers = ros::WallDuration());
-  MOVEIT_DEPRECATED MoveGroupInterface(const Options& opt, const std::shared_ptr<tf2_ros::Buffer>& tf_buffer,
-                                       const ros::Duration& wait_for_servers);
+  [[deprecated]] MoveGroupInterface(const Options& opt, const std::shared_ptr<tf2_ros::Buffer>& tf_buffer,
+                                    const ros::Duration& wait_for_servers);
 
   /**
       \brief Construct a client for the MoveGroup action for a particular \e group.
@@ -165,8 +164,8 @@ public:
   MoveGroupInterface(const std::string& group,
                      const std::shared_ptr<tf2_ros::Buffer>& tf_buffer = std::shared_ptr<tf2_ros::Buffer>(),
                      const ros::WallDuration& wait_for_servers = ros::WallDuration());
-  MOVEIT_DEPRECATED MoveGroupInterface(const std::string& group, const std::shared_ptr<tf2_ros::Buffer>& tf_buffer,
-                                       const ros::Duration& wait_for_servers);
+  [[deprecated]] MoveGroupInterface(const std::string& group, const std::shared_ptr<tf2_ros::Buffer>& tf_buffer,
+                                    const ros::Duration& wait_for_servers);
 
   ~MoveGroupInterface();
 
@@ -178,18 +177,17 @@ public:
   MoveGroupInterface(const MoveGroupInterface&) = delete;
   MoveGroupInterface& operator=(const MoveGroupInterface&) = delete;
 
-  MoveGroupInterface(MoveGroupInterface&& other);
-  MoveGroupInterface& operator=(MoveGroupInterface&& other);
-
+  MoveGroupInterface(MoveGroupInterface&& other) noexcept;
+  MoveGroupInterface& operator=(MoveGroupInterface&& other) noexcept;
   /** \brief Get the name of the group this instance operates on */
   const std::string& getName() const;
 
   /** \brief Get the names of the named robot states available as targets, both either remembered states or default
    * states from srdf */
-  const std::vector<std::string> getNamedTargets();
+  const std::vector<std::string>& getNamedTargets() const;
 
   /** \brief Get the RobotModel object. */
-  robot_model::RobotModelConstPtr getRobotModel() const;
+  moveit::core::RobotModelConstPtr getRobotModel() const;
 
   /** \brief Get the ROS node handle of this instance operates on */
   const ros::NodeHandle& getNodeHandle() const;
@@ -201,13 +199,13 @@ public:
   const std::vector<std::string>& getJointModelGroupNames() const;
 
   /** \brief Get vector of names of joints available in move group */
-  const std::vector<std::string>& getJointNames();
+  const std::vector<std::string>& getJointNames() const;
 
   /** \brief Get vector of names of links available in move group */
-  const std::vector<std::string>& getLinkNames();
+  const std::vector<std::string>& getLinkNames() const;
 
   /** \brief Get the joint angles for targets specified by name */
-  std::map<std::string, double> getNamedTargetValues(const std::string& name);
+  std::map<std::string, double> getNamedTargetValues(const std::string& name) const;
 
   /** \brief Get only the active (actuated) joints this instance operates on */
   const std::vector<std::string>& getActiveJoints() const;
@@ -220,10 +218,11 @@ public:
   unsigned int getVariableCount() const;
 
   /** \brief Get the description of the planning plugin loaded by the action server */
-  bool getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription& desc);
+  bool getInterfaceDescription(moveit_msgs::PlannerInterfaceDescription& desc) const;
 
   /** \brief Get the planner parameters for given group and planner_id */
-  std::map<std::string, std::string> getPlannerParams(const std::string& planner_id, const std::string& group = "");
+  std::map<std::string, std::string> getPlannerParams(const std::string& planner_id,
+                                                      const std::string& group = "") const;
 
   /** \brief Set the planner parameters for given group and planner_id */
   void setPlannerParams(const std::string& planner_id, const std::string& group,
@@ -247,16 +246,16 @@ public:
 
   /** \brief Set a scaling factor for optionally reducing the maximum joint velocity.
       Allowed values are in (0,1]. The maximum joint velocity specified
-      in the robot model is multiplied by the factor. If outside valid range
-      (importantly, this includes it being set to 0.0), the factor is set to a
-      default value of 1.0 internally (i.e. maximum joint velocity) */
+      in the robot model is multiplied by the factor. If the value is 0, it is set to
+      the default value, which is defined in joint_limits.yaml of the moveit_config.
+      If the value is greater than 1, it is set to 1.0. */
   void setMaxVelocityScalingFactor(double max_velocity_scaling_factor);
 
   /** \brief Set a scaling factor for optionally reducing the maximum joint acceleration.
       Allowed values are in (0,1]. The maximum joint acceleration specified
-      in the robot model is multiplied by the factor. If outside valid range
-      (importantly, this includes it being set to 0.0), the factor is set to a
-      default value of 1.0 internally (i.e. maximum joint acceleration) */
+      in the robot model is multiplied by the factor. If the value is 0, it is set to
+      the default value, which is defined in joint_limits.yaml of the moveit_config.
+      If the value is greater than 1, it is set to 1.0. */
   void setMaxAccelerationScalingFactor(double max_acceleration_scaling_factor);
 
   /** \brief Get the number of seconds set by setPlanningTime() */
@@ -304,7 +303,7 @@ public:
 
   /** \brief If a different start state should be considered instead of the current state of the robot, this function
    * sets that state */
-  void setStartState(const robot_state::RobotState& start_state);
+  void setStartState(const moveit::core::RobotState& start_state);
 
   /** \brief Set the starting state for planning to be that reported by the robot's joint state publication */
   void setStartStateToCurrentState();
@@ -387,7 +386,7 @@ public:
 
       If these values are out of bounds then false is returned BUT THE VALUES
       ARE STILL SET AS THE GOAL. */
-  bool setJointValueTarget(const robot_state::RobotState& robot_state);
+  bool setJointValueTarget(const moveit::core::RobotState& robot_state);
 
   /** \brief Set the JointValueTarget and use it for future planning requests.
 
@@ -517,7 +516,7 @@ public:
   void getJointValueTarget(std::vector<double>& group_variable_values) const;
 
   /// Get the currently set joint state goal, replaced by private getTargetRobotState()
-  MOVEIT_DEPRECATED const robot_state::RobotState& getJointValueTarget() const;
+  [[deprecated]] const moveit::core::RobotState& getJointValueTarget() const;
 
   /**@}*/
 
@@ -727,11 +726,17 @@ public:
       target. No execution is performed. The resulting plan is stored in \e plan*/
   MoveItErrorCode plan(Plan& plan);
 
-  /** \brief Given a \e plan, execute it without waiting for completion. Return true on success. */
+  /** \brief Given a \e plan, execute it without waiting for completion. */
   MoveItErrorCode asyncExecute(const Plan& plan);
 
-  /** \brief Given a \e plan, execute it while waiting for completion. Return true on success. */
+  /** \brief Given a \e robot trajectory, execute it without waiting for completion. */
+  MoveItErrorCode asyncExecute(const moveit_msgs::RobotTrajectory& trajectory);
+
+  /** \brief Given a \e plan, execute it while waiting for completion. */
   MoveItErrorCode execute(const Plan& plan);
+
+  /** \brief Given a \e robot trajectory, execute it while waiting for completion. */
+  MoveItErrorCode execute(const moveit_msgs::RobotTrajectory& trajectory);
 
   /** \brief Compute a Cartesian path that follows specified waypoints with a step size of at most \e eef_step meters
       between end effector configurations of consecutive points in the result \e trajectory. The reference frame for the
@@ -744,7 +749,7 @@ public:
       Return -1.0 in case of error. */
   double computeCartesianPath(const std::vector<geometry_msgs::Pose>& waypoints, double eef_step, double jump_threshold,
                               moveit_msgs::RobotTrajectory& trajectory, bool avoid_collisions = true,
-                              moveit_msgs::MoveItErrorCodes* error_code = NULL);
+                              moveit_msgs::MoveItErrorCodes* error_code = nullptr);
 
   /** \brief Compute a Cartesian path that follows specified waypoints with a step size of at most \e eef_step meters
       between end effector configurations of consecutive points in the result \e trajectory. The reference frame for the
@@ -761,7 +766,7 @@ public:
   double computeCartesianPath(const std::vector<geometry_msgs::Pose>& waypoints, double eef_step, double jump_threshold,
                               moveit_msgs::RobotTrajectory& trajectory,
                               const moveit_msgs::Constraints& path_constraints, bool avoid_collisions = true,
-                              moveit_msgs::MoveItErrorCodes* error_code = NULL);
+                              moveit_msgs::MoveItErrorCodes* error_code = nullptr);
 
   /** \brief Stop any trajectory execution, if one is active */
   void stop();
@@ -779,14 +784,15 @@ public:
 
   /** \brief Build a PickupGoal for an object named \e object and store it in \e goal_out */
   moveit_msgs::PickupGoal constructPickupGoal(const std::string& object, std::vector<moveit_msgs::Grasp> grasps,
-                                              bool plan_only);
+                                              bool plan_only) const;
 
   /** \brief Build a PlaceGoal for an object named \e object and store it in \e goal_out */
   moveit_msgs::PlaceGoal constructPlaceGoal(const std::string& object,
-                                            std::vector<moveit_msgs::PlaceLocation> locations, bool plan_only);
+                                            std::vector<moveit_msgs::PlaceLocation> locations, bool plan_only) const;
 
   /** \brief Convert a vector of PoseStamped to a vector of PlaceLocation */
-  std::vector<moveit_msgs::PlaceLocation> posesToPlaceLocations(const std::vector<geometry_msgs::PoseStamped>& poses);
+  std::vector<moveit_msgs::PlaceLocation>
+  posesToPlaceLocations(const std::vector<geometry_msgs::PoseStamped>& poses) const;
 
   /**@}*/
 
@@ -903,28 +909,28 @@ public:
   bool startStateMonitor(double wait = 1.0);
 
   /** \brief Get the current joint values for the joints planned for by this instance (see getJoints()) */
-  std::vector<double> getCurrentJointValues();
+  std::vector<double> getCurrentJointValues() const;
 
   /** \brief Get the current state of the robot within the duration specified by wait. */
-  robot_state::RobotStatePtr getCurrentState(double wait = 1);
+  moveit::core::RobotStatePtr getCurrentState(double wait = 1) const;
 
   /** \brief Get the pose for the end-effector \e end_effector_link.
       If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is
      assumed */
-  geometry_msgs::PoseStamped getCurrentPose(const std::string& end_effector_link = "");
+  geometry_msgs::PoseStamped getCurrentPose(const std::string& end_effector_link = "") const;
 
   /** \brief Get the roll-pitch-yaw (XYZ) for the end-effector \e end_effector_link.
       If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is
      assumed */
-  std::vector<double> getCurrentRPY(const std::string& end_effector_link = "");
+  std::vector<double> getCurrentRPY(const std::string& end_effector_link = "") const;
 
   /** \brief Get random joint values for the joints planned for by this instance (see getJoints()) */
-  std::vector<double> getRandomJointValues();
+  std::vector<double> getRandomJointValues() const;
 
   /** \brief Get a random reachable pose for the end-effector \e end_effector_link.
       If \e end_effector_link is empty (the default value) then the end-effector reported by getEndEffectorLink() is
      assumed */
-  geometry_msgs::PoseStamped getRandomPose(const std::string& end_effector_link = "");
+  geometry_msgs::PoseStamped getRandomPose(const std::string& end_effector_link = "") const;
 
   /**@}*/
 
@@ -994,7 +1000,7 @@ public:
 
 protected:
   /** return the full RobotState of the joint-space target, only for internal use */
-  const robot_state::RobotState& getTargetRobotState() const;
+  const moveit::core::RobotState& getTargetRobotState() const;
 
 private:
   std::map<std::string, std::vector<double> > remembered_joint_values_;
@@ -1003,5 +1009,3 @@ private:
 };
 }  // namespace planning_interface
 }  // namespace moveit
-
-#endif

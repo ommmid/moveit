@@ -34,22 +34,25 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_DEFAULT_COLLISIONS_WIDGET__
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_WIDGETS_DEFAULT_COLLISIONS_WIDGET__
-
-#include <QLabel>
-#include <QVBoxLayout>
-#include <QTableView>
-#include <QSlider>
-#include <QPushButton>
-#include <QGroupBox>
-#include <QProgressBar>
-#include <QCheckBox>
-#include <QRadioButton>
-#include <QSpinBox>
+#pragma once
 #include <QThread>
-#include <QLineEdit>
-#include <QAction>
+class QAbstractItemModel;
+class QAction;
+class QButtonGroup;
+class QCheckBox;
+class QGroupBox;
+class QHeaderView;
+class QItemSelection;
+class QItemSelectionModel;
+class QLabel;
+class QLineEdit;
+class QProgressBar;
+class QPushButton;
+class QRadioButton;
+class QSlider;
+class QSpinBox;
+class QTableView;
+class QVBoxLayout;
 
 #ifndef Q_MOC_RUN
 #include <boost/thread/thread.hpp>
@@ -73,8 +76,8 @@ class DefaultCollisionsWidget : public SetupScreenWidget
 public:
   enum ViewMode
   {
-    MatrixMode = 0,
-    LinearMode = 1
+    MATRIX_MODE = 0,
+    LINEAR_MODE = 1
   };
 
   // ******************************************************************************************
@@ -140,8 +143,8 @@ private Q_SLOTS:
   void revertChanges();
 
   /**
-  * \brief Called when current row has changed
-  */
+   * \brief Called when current row has changed
+   */
   void previewSelectedMatrix(const QModelIndex& index);
   void previewSelectedLinear(const QModelIndex& index);
 
@@ -237,7 +240,7 @@ class MonitorThread : public QThread
   Q_OBJECT
 
 public:
-  MonitorThread(const boost::function<void(unsigned int*)>& f, QProgressBar* progress_bar = NULL);
+  MonitorThread(const boost::function<void(unsigned int*)>& f, QProgressBar* progress_bar = nullptr);
   void run() override;
   void cancel()
   {
@@ -256,6 +259,4 @@ private:
   unsigned int progress_;
   bool canceled_;
 };
-}
-
-#endif
+}  // namespace moveit_setup_assistant

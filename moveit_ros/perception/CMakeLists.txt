@@ -1,7 +1,11 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.1.3)
 project(moveit_ros_perception)
 
-add_compile_options(-std=c++14)
+if(NOT "${CMAKE_CXX_STANDARD}")
+  set(CMAKE_CXX_STANDARD 14)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(WITH_OPENGL "Build the parts that depend on OpenGL" ON)
 
@@ -12,6 +16,10 @@ endif()
 find_package(Boost REQUIRED thread)
 
 if(WITH_OPENGL)
+  # Prefer newer vendor-specific OpenGL library
+  if (POLICY CMP0072)
+    cmake_policy(SET CMP0072 NEW)
+  endif()
   find_package(OpenGL REQUIRED)
   find_package(GLEW REQUIRED)
   find_package(GLUT REQUIRED)
@@ -65,6 +73,7 @@ catkin_package(
     moveit_msgs
     moveit_ros_occupancy_map_monitor
     object_recognition_msgs
+    roscpp
     sensor_msgs
     tf2_geometry_msgs
   DEPENDS
@@ -76,12 +85,12 @@ include_directories(lazy_free_space_updater/include
                     pointcloud_octomap_updater/include
                     semantic_world/include
                     ${perception_GL_INCLUDE_DIRS}
-                    ${Boost_INCLUDE_DIRS}
-                    ${catkin_INCLUDE_DIRS}
                     )
 include_directories(SYSTEM
-                    ${OpenCV_INCLUDE_DIRS}
+                    ${catkin_INCLUDE_DIRS}
+                    ${Boost_INCLUDE_DIRS}
                     ${EIGEN3_INCLUDE_DIRS}
+                    ${OpenCV_INCLUDE_DIRS}
                     ${SYSTEM_GL_INCLUDE_DIR}
                     ${X11_INCLUDE_DIR}
                     )

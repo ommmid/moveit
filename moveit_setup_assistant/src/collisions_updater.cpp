@@ -34,7 +34,6 @@
 
 /* Author: Mathias Lüdtke */
 
-#include <ros/ros.h>
 #include <moveit/setup_assistant/tools/moveit_config_data.h>
 #include <moveit/rdf_loader/rdf_loader.h>
 
@@ -127,7 +126,7 @@ int main(int argc, char* argv[])
   uint32_t never_trials = 0;
 
   po::options_description desc("Allowed options");
-  desc.add_options()("help", "show help")("config-pkg", po::value(&config_pkg_path), "path to MoveIt! config package")(
+  desc.add_options()("help", "show help")("config-pkg", po::value(&config_pkg_path), "path to MoveIt config package")(
       "urdf", po::value(&urdf_path),
       "path to URDF ( or xacro)")("srdf", po::value(&srdf_path),
                                   "path to SRDF ( or xacro)")("output", po::value(&output_path), "output path for SRDF")

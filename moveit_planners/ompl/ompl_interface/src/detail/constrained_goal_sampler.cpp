@@ -41,6 +41,11 @@
 
 #include <utility>
 
+namespace ompl_interface
+{
+constexpr char LOGNAME[] = "constrained_goal_sampler";
+}  // namespace ompl_interface
+
 ompl_interface::ConstrainedGoalSampler::ConstrainedGoalSampler(const ModelBasedPlanningContext* pc,
                                                                kinematic_constraints::KinematicConstraintSetPtr ks,
                                                                constraint_samplers::ConstraintSamplerPtr cs)
@@ -58,12 +63,12 @@ ompl_interface::ConstrainedGoalSampler::ConstrainedGoalSampler(const ModelBasedP
 {
   if (!constraint_sampler_)
     default_sampler_ = si_->allocStateSampler();
-  ROS_DEBUG_NAMED("constrained_goal_sampler", "Constructed a ConstrainedGoalSampler instance at address %p", this);
+  ROS_DEBUG_NAMED(LOGNAME, "Constructed a ConstrainedGoalSampler instance at address %p", this);
   startSampling();
 }
 
 bool ompl_interface::ConstrainedGoalSampler::checkStateValidity(ob::State* new_goal,
-                                                                const robot_state::RobotState& state,
+                                                                const moveit::core::RobotState& state,
                                                                 bool verbose) const
 {
   planning_context_->getOMPLStateSpace()->copyToOMPLState(new_goal, state);
@@ -71,12 +76,12 @@ bool ompl_interface::ConstrainedGoalSampler::checkStateValidity(ob::State* new_g
 }
 
 bool ompl_interface::ConstrainedGoalSampler::stateValidityCallback(ob::State* new_goal,
-                                                                   robot_state::RobotState const* state,
-                                                                   const robot_model::JointModelGroup* jmg,
+                                                                   moveit::core::RobotState const* state,
+                                                                   const moveit::core::JointModelGroup* jmg,
                                                                    const double* jpos, bool verbose) const
 {
   // we copy the state to not change the seed state
-  robot_state::RobotState solution_state(*state);
+  moveit::core::RobotState solution_state(*state);
   solution_state.setJointGroupPositions(jmg, jpos);
   solution_state.update();
   return checkStateValidity(new_goal, solution_state, verbose);
@@ -116,7 +121,7 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
     if (constraint_sampler_)
     {
       // makes the constraint sampler also perform a validity callback
-      robot_state::GroupStateValidityCallbackFn gsvcf =
+      moveit::core::GroupStateValidityCallbackFn gsvcf =
           std::bind(&ompl_interface::ConstrainedGoalSampler::stateValidityCallback, this, new_goal,
                     std::placeholders::_1,  // pointer to state
                     std::placeholders::_2,  // const* joint model group
@@ -138,9 +143,9 @@ bool ompl_interface::ConstrainedGoalSampler::sampleUsingConstraintSampler(const 
           if (!warned_invalid_samples_ && invalid_sampled_constraints_ >= (attempts_so_far * 8) / 10)
           {
             warned_invalid_samples_ = true;
-            ROS_WARN_NAMED("constrained_goal_sampler", "More than 80%% of the sampled goal states "
-                                                       "fail to satisfy the constraints imposed on the goal sampler. "
-                                                       "Is the constrained sampler working correctly?");
+            ROS_WARN_NAMED(LOGNAME, "More than 80%% of the sampled goal states "
+                                    "fail to satisfy the constraints imposed on the goal sampler. "
+                                    "Is the constrained sampler working correctly?");
           }
         }
       }

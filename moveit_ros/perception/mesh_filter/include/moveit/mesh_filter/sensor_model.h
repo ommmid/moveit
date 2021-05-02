@@ -34,11 +34,10 @@
 
 /* Author: Suat Gedikli */
 
-#ifndef MOVEIT_MESH_FILTER_SENSOR_MODEL_
-#define MOVEIT_MESH_FILTER_SENSOR_MODEL_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
-#include <Eigen/Eigen>
+#include <Eigen/Core>  // for Vector3f
 
 namespace mesh_filter
 {
@@ -52,7 +51,7 @@ class GLRenderer;
 class SensorModel
 {
 public:
-  MOVEIT_CLASS_FORWARD(Parameters);
+  MOVEIT_CLASS_FORWARD(Parameters);  // Defines ParametersPtr, ConstPtr, WeakPtr... etc
 
   /**
    * \brief Abstract Interface defining Sensor Parameters.
@@ -170,5 +169,3 @@ public:
   virtual ~SensorModel();
 };
 }  // namespace mesh_filter
-
-#endif

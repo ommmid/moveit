@@ -119,7 +119,7 @@ void MotionPlanningFrame::loadStoredStates(const std::string& pattern)
   populateRobotStatesList();
 }
 
-void MotionPlanningFrame::saveRobotStateButtonClicked(const robot_state::RobotState& state)
+void MotionPlanningFrame::saveRobotStateButtonClicked(const moveit::core::RobotState& state)
 {
   bool ok = false;
 
@@ -137,14 +137,13 @@ void MotionPlanningFrame::saveRobotStateButtonClicked(const robot_state::RobotSt
     {
       name = text.toStdString();
       if (robot_states_.find(name) != robot_states_.end())
-        QMessageBox::warning(
-            this, "Name already exists",
-            QString("The name '").append(name.c_str()).append("' already exists. Not creating state."));
+        QMessageBox::warning(this, "Name already exists",
+                             QString("The name '").append(name.c_str()).append("' already exists. Not creating state."));
       else
       {
         // Store the current start state
         moveit_msgs::RobotState msg;
-        robot_state::robotStateToRobotStateMsg(state, msg);
+        moveit::core::robotStateToRobotStateMsg(state, msg);
         robot_states_.insert(RobotStatePair(name, msg));
 
         // Save to the database if connected
@@ -161,8 +160,7 @@ void MotionPlanningFrame::saveRobotStateButtonClicked(const robot_state::RobotSt
         }
         else
         {
-          QMessageBox::warning(this, "Warning",
-                               "Not connected to a database. The state will be created but not stored");
+          QMessageBox::warning(this, "Warning", "Not connected to a database. The state will be created but not stored");
         }
       }
     }
@@ -188,8 +186,8 @@ void MotionPlanningFrame::setAsStartStateButtonClicked()
 
   if (item)
   {
-    robot_state::RobotState robot_state(*planning_display_->getQueryStartState());
-    robot_state::robotStateMsgToRobotState(robot_states_[item->text().toStdString()], robot_state);
+    moveit::core::RobotState robot_state(*planning_display_->getQueryStartState());
+    moveit::core::robotStateMsgToRobotState(robot_states_[item->text().toStdString()], robot_state);
     planning_display_->setQueryStartState(robot_state);
   }
 }
@@ -200,8 +198,8 @@ void MotionPlanningFrame::setAsGoalStateButtonClicked()
 
   if (item)
   {
-    robot_state::RobotState robot_state(*planning_display_->getQueryGoalState());
-    robot_state::robotStateMsgToRobotState(robot_states_[item->text().toStdString()], robot_state);
+    moveit::core::RobotState robot_state(*planning_display_->getQueryGoalState());
+    moveit::core::robotStateMsgToRobotState(robot_states_[item->text().toStdString()], robot_state);
     planning_display_->setQueryGoalState(robot_state);
   }
 }
@@ -245,8 +243,21 @@ void MotionPlanningFrame::removeStateButtonClicked()
 
 void MotionPlanningFrame::clearStatesButtonClicked()
 {
-  robot_states_.clear();
-  populateRobotStatesList();
+  QMessageBox msg_box;
+  msg_box.setText("Clear all stored robot states (from memory, not from the database)?");
+  msg_box.setStandardButtons(QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+  msg_box.setDefaultButton(QMessageBox::Yes);
+  int ret = msg_box.exec();
+  switch (ret)
+  {
+    case QMessageBox::Yes:
+    {
+      robot_states_.clear();
+      populateRobotStatesList();
+    }
+    break;
+  }
+  return;
 }
 
 }  // namespace moveit_rviz_plugin

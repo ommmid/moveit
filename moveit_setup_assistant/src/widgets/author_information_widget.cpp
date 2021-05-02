@@ -39,15 +39,15 @@
 #include <QPushButton>
 #include <QMessageBox>
 #include <QApplication>
-#include <QSplitter>
-// ROS
+#include <QLabel>
+#include <QLineEdit>
 #include "author_information_widget.h"
-#include <ros/ros.h>
+#include "header_widget.h"
 
 namespace moveit_setup_assistant
 {
 // ******************************************************************************************
-// Outer User Interface for MoveIt! Configuration Assistant
+// Outer User Interface for MoveIt Configuration Assistant
 // ******************************************************************************************
 AuthorInformationWidget::AuthorInformationWidget(QWidget* parent, const MoveItConfigDataPtr& config_data)
   : SetupScreenWidget(parent), config_data_(config_data)
@@ -66,7 +66,7 @@ AuthorInformationWidget::AuthorInformationWidget(QWidget* parent, const MoveItCo
   layout->addWidget(header);
 
   QLabel* name_title = new QLabel(this);
-  name_title->setText("Name of the maintainer this MoveIt! configuration:");
+  name_title->setText("Name of the maintainer this MoveIt configuration:");
   layout->addWidget(name_title);
 
   name_edit_ = new QLineEdit(this);
@@ -74,7 +74,7 @@ AuthorInformationWidget::AuthorInformationWidget(QWidget* parent, const MoveItCo
   layout->addWidget(name_edit_);
 
   QLabel* email_title = new QLabel(this);
-  email_title->setText("Email of the maintainer of this MoveIt! configuration:");
+  email_title->setText("Email of the maintainer of this MoveIt configuration:");
   layout->addWidget(email_title);
 
   email_edit_ = new QLineEdit(this);

@@ -34,15 +34,14 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_CONSTRAINT_SAMPLERS_CONSTRAINT_SAMPLER_TOOLS_
-#define MOVEIT_CONSTRAINT_SAMPLERS_CONSTRAINT_SAMPLER_TOOLS_
+#pragma once
 
 #include <moveit/constraint_samplers/constraint_sampler.h>
 #include <visualization_msgs/MarkerArray.h>
 
 namespace constraint_samplers
 {
-void visualizeDistribution(const ConstraintSamplerPtr& sampler, const robot_state::RobotState& reference_state,
+void visualizeDistribution(const ConstraintSamplerPtr& sampler, const moveit::core::RobotState& reference_state,
                            const std::string& link_name, unsigned int sample_count,
                            visualization_msgs::MarkerArray& markers);
 
@@ -50,10 +49,8 @@ void visualizeDistribution(const moveit_msgs::Constraints& constr, const plannin
                            const std::string& group, const std::string& link_name, unsigned int sample_count,
                            visualization_msgs::MarkerArray& markers);
 
-double countSamplesPerSecond(const ConstraintSamplerPtr& sampler, const robot_state::RobotState& reference_state);
+double countSamplesPerSecond(const ConstraintSamplerPtr& sampler, const moveit::core::RobotState& reference_state);
 
 double countSamplesPerSecond(const moveit_msgs::Constraints& constr, const planning_scene::PlanningSceneConstPtr& scene,
                              const std::string& group);
-}
-
-#endif
+}  // namespace constraint_samplers

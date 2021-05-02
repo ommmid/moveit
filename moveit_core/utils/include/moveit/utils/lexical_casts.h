@@ -34,8 +34,7 @@
 
 /* Author: Simon Schmeisser */
 
-#ifndef MOVEIT_CORE_UTILS_LEXICAL_CASTS_
-#define MOVEIT_CORE_UTILS_LEXICAL_CASTS_
+#pragma once
 
 /** \file lexical_casts.h
  *  \brief locale-agnostic conversion functions from floating point numbers to strings
@@ -66,7 +65,5 @@ double toDouble(const std::string& s);
  \throws std::runtime_exception if not a valid number
 */
 float toFloat(const std::string& s);
-}
-}
-
-#endif
+}  // namespace core
+}  // namespace moveit

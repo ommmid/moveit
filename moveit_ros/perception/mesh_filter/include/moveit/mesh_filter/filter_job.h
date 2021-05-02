@@ -34,8 +34,7 @@
 
 /* Author: Suat Gedikli */
 
-#ifndef MOVEIT_MESH_FILTER_FILTER_JOB_
-#define MOVEIT_MESH_FILTER_FILTER_JOB_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <boost/thread/condition.hpp>
@@ -44,7 +43,7 @@
 
 namespace mesh_filter
 {
-MOVEIT_CLASS_FORWARD(Job);
+MOVEIT_CLASS_FORWARD(Job);  // Defines JobPtr, ConstPtr, WeakPtr... etc
 
 /**
  * \brief This class is used to execute functions within the thread that holds the OpenGL context.
@@ -141,5 +140,4 @@ public:
 private:
   boost::function<void()> exec_;
 };
-}
-#endif
+}  // namespace mesh_filter

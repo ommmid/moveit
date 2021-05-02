@@ -35,8 +35,7 @@
 
 /* Author: Ioan Sucan */
 
-#ifndef MOVEIT_CORE_ROBOT_MODEL_
-#define MOVEIT_CORE_ROBOT_MODEL_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/exceptions/exceptions.h>
@@ -54,13 +53,13 @@
 #include <Eigen/Geometry>
 #include <iostream>
 
-/** \brief Main namespace for MoveIt! */
+/** \brief Main namespace for MoveIt */
 namespace moveit
 {
-/** \brief Core components of MoveIt! */
+/** \brief Core components of MoveIt */
 namespace core
 {
-MOVEIT_CLASS_FORWARD(RobotModel);
+MOVEIT_CLASS_FORWARD(RobotModel);  // Defines RobotModelPtr, ConstPtr, WeakPtr... etc
 
 /** \brief Definition of a kinematic model. This class is not thread
     safe, however multiple instances can be created */
@@ -91,7 +90,7 @@ public:
   /** \brief Return true if the model is empty (has no root link, no joints) */
   bool isEmpty() const
   {
-    return root_link_ == NULL;
+    return root_link_ == nullptr;
   }
 
   /** \brief Get the parsed URDF model */
@@ -430,8 +429,7 @@ public:
       return b;
     if (!b)
       return a;
-    return joint_model_vector_[common_joint_roots_[a->getJointIndex() * joint_model_vector_.size() +
-                                                   b->getJointIndex()]];
+    return joint_model_vector_[common_joint_roots_[a->getJointIndex() * joint_model_vector_.size() + b->getJointIndex()]];
   }
 
   /// A map of known kinematics solvers (associated to their group name)
@@ -616,10 +614,8 @@ protected:
   /** \brief Given a geometry spec from the URDF and a filename (for a mesh), construct the corresponding shape object*/
   shapes::ShapePtr constructShape(const urdf::Geometry* geom);
 };
-}
-}
+}  // namespace core
+}  // namespace moveit
 
 namespace robot_model = moveit::core;
 namespace robot_state = moveit::core;
-
-#endif

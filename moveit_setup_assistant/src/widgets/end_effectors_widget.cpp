@@ -36,10 +36,24 @@
 
 // SA
 #include "end_effectors_widget.h"
+#include "header_widget.h"
+
 // Qt
-#include <QFormLayout>
-#include <QMessageBox>
 #include <QApplication>
+#include <QComboBox>
+#include <QFormLayout>
+#include <QGroupBox>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QStackedWidget>
+#include <QString>
+#include <QTableWidget>
+#include <QVBoxLayout>
+#include <QWidget>
 
 namespace moveit_setup_assistant
 {
@@ -54,12 +68,12 @@ EndEffectorsWidget::EndEffectorsWidget(QWidget* parent, const MoveItConfigDataPt
 
   // Top Header Area ------------------------------------------------
 
-  HeaderWidget* header =
-      new HeaderWidget("Define End Effectors", "Setup your robot's end effectors. These are planning groups "
-                                               "corresponding to grippers or tools, attached to a parent "
-                                               "planning group (an arm). The specified parent link is used as the "
-                                               "reference frame for IK attempts.",
-                       this);
+  HeaderWidget* header = new HeaderWidget("Define End Effectors",
+                                          "Setup your robot's end effectors. These are planning groups "
+                                          "corresponding to grippers or tools, attached to a parent "
+                                          "planning group (an arm). The specified parent link is used as the "
+                                          "reference frame for IK attempts.",
+                                          this);
   layout->addWidget(header);
 
   // Create contents screens ---------------------------------------
@@ -68,15 +82,10 @@ EndEffectorsWidget::EndEffectorsWidget(QWidget* parent, const MoveItConfigDataPt
   effector_edit_widget_ = createEditWidget();
 
   // Create stacked layout -----------------------------------------
-  stacked_layout_ = new QStackedLayout(this);
-  stacked_layout_->addWidget(effector_list_widget_);  // screen index 0
-  stacked_layout_->addWidget(effector_edit_widget_);  // screen index 1
-
-  // Create Widget wrapper for layout
-  QWidget* stacked_layout_widget = new QWidget(this);
-  stacked_layout_widget->setLayout(stacked_layout_);
-
-  layout->addWidget(stacked_layout_widget);
+  stacked_widget_ = new QStackedWidget(this);
+  stacked_widget_->addWidget(effector_list_widget_);  // screen index 0
+  stacked_widget_->addWidget(effector_edit_widget_);  // screen index 1
+  layout->addWidget(stacked_widget_);
 
   // Finish Layout --------------------------------------------------
   this->setLayout(layout);
@@ -116,9 +125,7 @@ QWidget* EndEffectorsWidget::createContentsWidget()
   QHBoxLayout* controls_layout = new QHBoxLayout();
 
   // Spacer
-  QWidget* spacer = new QWidget(this);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  controls_layout->addWidget(spacer);
+  controls_layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   // Edit Selected Button
   btn_edit_ = new QPushButton("&Edit Selected", this);
@@ -196,9 +203,7 @@ QWidget* EndEffectorsWidget::createEditWidget()
   controls_layout->setContentsMargins(0, 25, 0, 15);
 
   // Spacer
-  QWidget* spacer = new QWidget(this);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  controls_layout->addWidget(spacer);
+  controls_layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   // Save
   btn_save_ = new QPushButton("&Save", this);
@@ -238,7 +243,7 @@ void EndEffectorsWidget::showNewScreen()
   parent_group_name_field_->clearEditText();  // actually this just chooses first option
 
   // Switch to screen
-  stacked_layout_->setCurrentIndex(1);
+  stacked_widget_->setCurrentIndex(1);
 
   // Announce that this widget is in modal mode
   Q_EMIT isModal(true);
@@ -247,7 +252,7 @@ void EndEffectorsWidget::showNewScreen()
 // ******************************************************************************************
 // Edit whatever element is selected
 // ******************************************************************************************
-void EndEffectorsWidget::editDoubleClicked(int row, int column)
+void EndEffectorsWidget::editDoubleClicked(int /*row*/, int /*column*/)
 {
   editSelected();
 }
@@ -255,7 +260,7 @@ void EndEffectorsWidget::editDoubleClicked(int row, int column)
 // ******************************************************************************************
 // Preview whatever element is selected
 // ******************************************************************************************
-void EndEffectorsWidget::previewClicked(int row, int column)
+void EndEffectorsWidget::previewClicked(int /*row*/, int /*column*/)
 {
   // Get list of all selected items
   QList<QTableWidgetItem*> selected = data_table_->selectedItems();
@@ -280,7 +285,7 @@ void EndEffectorsWidget::previewClicked(int row, int column)
 void EndEffectorsWidget::previewClickedString(const QString& name)
 {
   // Don't highlight if we are on the overview end effectors screen. we are just populating drop down box
-  if (stacked_layout_->currentIndex() == 0)
+  if (stacked_widget_->currentIndex() == 0)
     return;
 
   // Unhighlight all links
@@ -348,7 +353,7 @@ void EndEffectorsWidget::edit(const std::string& name)
   parent_group_name_field_->setCurrentIndex(index);
 
   // Switch to screen
-  stacked_layout_->setCurrentIndex(1);
+  stacked_widget_->setCurrentIndex(1);
 
   // Announce that this widget is in modal mode
   Q_EMIT isModal(true);
@@ -381,10 +386,10 @@ void EndEffectorsWidget::loadParentComboBox()
   parent_name_field_->clear();
 
   // Get all links in robot model
-  std::vector<const robot_model::LinkModel*> link_models = config_data_->getRobotModel()->getLinkModels();
+  std::vector<const moveit::core::LinkModel*> link_models = config_data_->getRobotModel()->getLinkModels();
 
   // Add all links to combo box
-  for (std::vector<const robot_model::LinkModel*>::const_iterator link_it = link_models.begin();
+  for (std::vector<const moveit::core::LinkModel*>::const_iterator link_it = link_models.begin();
        link_it < link_models.end(); ++link_it)
   {
     parent_name_field_->addItem((*link_it)->getName().c_str());
@@ -486,13 +491,12 @@ void EndEffectorsWidget::doneEditing()
   }
 
   // Check that the effector name is unique
-  for (std::vector<srdf::Model::EndEffector>::const_iterator data_it = config_data_->srdf_->end_effectors_.begin();
-       data_it != config_data_->srdf_->end_effectors_.end(); ++data_it)
+  for (const auto& eef : config_data_->srdf_->end_effectors_)
   {
-    if (data_it->name_.compare(effector_name) == 0)  // the names are the same
+    if (eef.name_ == effector_name)
     {
       // is this our existing effector? check if effector pointers are same
-      if (&(*data_it) != searched_data)
+      if (&eef != searched_data)
       {
         QMessageBox::warning(
             this, "Error Saving",
@@ -516,7 +520,7 @@ void EndEffectorsWidget::doneEditing()
     return;
   }
 
-  const robot_model::JointModelGroup* jmg =
+  const moveit::core::JointModelGroup* jmg =
       config_data_->getRobotModel()->getJointModelGroup(group_name_field_->currentText().toStdString());
   /*
   if (jmg->hasLinkModel(parent_name_field_->currentText().toStdString()))
@@ -564,6 +568,7 @@ void EndEffectorsWidget::doneEditing()
   if (is_new)
   {
     config_data_->srdf_->end_effectors_.push_back(*searched_data);
+    delete searched_data;
   }
 
   // Finish up ------------------------------------------------------
@@ -572,7 +577,7 @@ void EndEffectorsWidget::doneEditing()
   loadDataTable();
 
   // Switch to screen
-  stacked_layout_->setCurrentIndex(0);
+  stacked_widget_->setCurrentIndex(0);
 
   // Announce that this widget is not in modal mode
   Q_EMIT isModal(false);
@@ -584,7 +589,7 @@ void EndEffectorsWidget::doneEditing()
 void EndEffectorsWidget::cancelEditing()
 {
   // Switch to screen
-  stacked_layout_->setCurrentIndex(0);
+  stacked_widget_->setCurrentIndex(0);
 
   // Re-highlight the currently selected end effector group
   previewClicked(0, 0);  // the number parameters are actually meaningless
@@ -608,17 +613,16 @@ void EndEffectorsWidget::loadDataTable()
 
   // Loop through every end effector
   int row = 0;
-  for (std::vector<srdf::Model::EndEffector>::const_iterator data_it = config_data_->srdf_->end_effectors_.begin();
-       data_it != config_data_->srdf_->end_effectors_.end(); ++data_it)
+  for (const auto& eef : config_data_->srdf_->end_effectors_)
   {
     // Create row elements
-    QTableWidgetItem* data_name = new QTableWidgetItem(data_it->name_.c_str());
+    QTableWidgetItem* data_name = new QTableWidgetItem(eef.name_.c_str());
     data_name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-    QTableWidgetItem* group_name = new QTableWidgetItem(data_it->component_group_.c_str());
+    QTableWidgetItem* group_name = new QTableWidgetItem(eef.component_group_.c_str());
     group_name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-    QTableWidgetItem* parent_name = new QTableWidgetItem(data_it->parent_link_.c_str());
+    QTableWidgetItem* parent_name = new QTableWidgetItem(eef.parent_link_.c_str());
     group_name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-    QTableWidgetItem* parent_group_name = new QTableWidgetItem(data_it->parent_group_.c_str());
+    QTableWidgetItem* parent_group_name = new QTableWidgetItem(eef.parent_group_.c_str());
     parent_group_name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     // Add to table
@@ -652,7 +656,7 @@ void EndEffectorsWidget::loadDataTable()
 void EndEffectorsWidget::focusGiven()
 {
   // Show the current effectors screen
-  stacked_layout_->setCurrentIndex(0);
+  stacked_widget_->setCurrentIndex(0);
 
   // Load the data to the tree
   loadDataTable();

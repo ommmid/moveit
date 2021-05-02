@@ -41,7 +41,6 @@
 #include <moveit/profiler/profiler.h>
 #include <algorithm>
 #include <limits>
-#include <queue>
 #include <cmath>
 #include <memory>
 #include "order_robot_model_items.inc"
@@ -327,6 +326,7 @@ void RobotModel::buildGroupStates(const srdf::Model& srdf_model)
     if (hasJointModelGroup(group_state.group_))
     {
       JointModelGroup* jmg = getJointModelGroup(group_state.group_);
+      std::vector<const JointModel*> remaining_joints = jmg->getActiveJointModels();
       std::map<std::string, double> state;
       for (std::map<std::string, std::vector<double>>::const_iterator jt = group_state.joint_values_.begin();
            jt != group_state.joint_values_.end(); ++jt)
@@ -335,19 +335,38 @@ void RobotModel::buildGroupStates(const srdf::Model& srdf_model)
         {
           const JointModel* jm = jmg->getJointModel(jt->first);
           const std::vector<std::string>& vn = jm->getVariableNames();
+          // Remove current joint name from remaining list.
+          auto it_found = std::find(remaining_joints.begin(), remaining_joints.end(), jm);
+          if (it_found != remaining_joints.end())
+            remaining_joints.erase(it_found);
           if (vn.size() == jt->second.size())
             for (std::size_t j = 0; j < vn.size(); ++j)
               state[vn[j]] = jt->second[j];
           else
-            ROS_ERROR_NAMED(LOGNAME, "The model for joint '%s' requires %d variable values, "
-                                     "but only %d variable values were supplied in default state '%s' for group '%s'",
+            ROS_ERROR_NAMED(LOGNAME,
+                            "The model for joint '%s' requires %d variable values, "
+                            "but only %d variable values were supplied in default state '%s' for group '%s'",
                             jt->first.c_str(), (int)vn.size(), (int)jt->second.size(), group_state.name_.c_str(),
                             jmg->getName().c_str());
         }
         else
-          ROS_ERROR_NAMED(LOGNAME, "Group state '%s' specifies value for joint '%s', "
-                                   "but that joint is not part of group '%s'",
+          ROS_ERROR_NAMED(LOGNAME,
+                          "Group state '%s' specifies value for joint '%s', "
+                          "but that joint is not part of group '%s'",
                           group_state.name_.c_str(), jt->first.c_str(), jmg->getName().c_str());
+      }
+      if (!remaining_joints.empty())
+      {
+        std::stringstream missing;
+        missing << (*remaining_joints.begin())->getName();
+        for (auto j = ++remaining_joints.begin(); j != remaining_joints.end(); j++)
+        {
+          missing << ", " << (*j)->getName();
+        }
+        ROS_WARN_STREAM_NAMED(LOGNAME, "Group state '" << group_state.name_
+                                                       << "' doesn't specify all group joints in group '"
+                                                       << group_state.group_ << "'. " << missing.str() << " "
+                                                       << (remaining_joints.size() > 1 ? "are" : "is") << " missing.");
       }
       if (!state.empty())
         jmg->addDefaultState(group_state.name_, state);
@@ -603,8 +622,9 @@ void RobotModel::buildGroupsInfoEndEffectors(const srdf::Model& srdf_model)
                                 eef.parent_group_.c_str(), eef.name_.c_str());
             }
             else
-              ROS_ERROR_NAMED(LOGNAME, "Group '%s' was specified as parent group for end-effector '%s' "
-                                       "but it does not include the parent link '%s'",
+              ROS_ERROR_NAMED(LOGNAME,
+                              "Group '%s' was specified as parent group for end-effector '%s' "
+                              "but it does not include the parent link '%s'",
                               eef.parent_group_.c_str(), eef.name_.c_str(), eef.parent_link_.c_str());
           }
           else
@@ -844,7 +864,7 @@ static inline VariableBounds jointBoundsFromURDF(const urdf::Joint* urdf_joint)
 JointModel* RobotModel::constructJointModel(const urdf::Joint* urdf_joint, const urdf::Link* child_link,
                                             const srdf::Model& srdf_model)
 {
-  JointModel* result = nullptr;
+  JointModel* new_joint_model = nullptr;
 
   // if urdf_joint exists, must be the root link transform
   if (urdf_joint)
@@ -857,7 +877,7 @@ JointModel* RobotModel::constructJointModel(const urdf::Joint* urdf_joint, const
         j->setVariableBounds(j->getName(), jointBoundsFromURDF(urdf_joint));
         j->setContinuous(false);
         j->setAxis(Eigen::Vector3d(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z));
-        result = j;
+        new_joint_model = j;
       }
       break;
       case urdf::Joint::CONTINUOUS:
@@ -866,7 +886,7 @@ JointModel* RobotModel::constructJointModel(const urdf::Joint* urdf_joint, const
         j->setVariableBounds(j->getName(), jointBoundsFromURDF(urdf_joint));
         j->setContinuous(true);
         j->setAxis(Eigen::Vector3d(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z));
-        result = j;
+        new_joint_model = j;
       }
       break;
       case urdf::Joint::PRISMATIC:
@@ -874,17 +894,17 @@ JointModel* RobotModel::constructJointModel(const urdf::Joint* urdf_joint, const
         PrismaticJointModel* j = new PrismaticJointModel(urdf_joint->name);
         j->setVariableBounds(j->getName(), jointBoundsFromURDF(urdf_joint));
         j->setAxis(Eigen::Vector3d(urdf_joint->axis.x, urdf_joint->axis.y, urdf_joint->axis.z));
-        result = j;
+        new_joint_model = j;
       }
       break;
       case urdf::Joint::FLOATING:
-        result = new FloatingJointModel(urdf_joint->name);
+        new_joint_model = new FloatingJointModel(urdf_joint->name);
         break;
       case urdf::Joint::PLANAR:
-        result = new PlanarJointModel(urdf_joint->name);
+        new_joint_model = new PlanarJointModel(urdf_joint->name);
         break;
       case urdf::Joint::FIXED:
-        result = new FixedJointModel(urdf_joint->name);
+        new_joint_model = new FixedJointModel(urdf_joint->name);
         break;
       default:
         ROS_ERROR_NAMED(LOGNAME, "Unknown joint type: %d", (int)urdf_joint->type);
@@ -898,8 +918,9 @@ JointModel* RobotModel::constructJointModel(const urdf::Joint* urdf_joint, const
     {
       if (virtual_joint.child_link_ != child_link->name)
       {
-        ROS_WARN_NAMED(LOGNAME, "Skipping virtual joint '%s' because its child frame '%s' "
-                                "does not match the URDF frame '%s'",
+        ROS_WARN_NAMED(LOGNAME,
+                       "Skipping virtual joint '%s' because its child frame '%s' "
+                       "does not match the URDF frame '%s'",
                        virtual_joint.name_.c_str(), virtual_joint.child_link_.c_str(), child_link->name.c_str());
       }
       else if (virtual_joint.parent_frame_.empty())
@@ -910,12 +931,12 @@ JointModel* RobotModel::constructJointModel(const urdf::Joint* urdf_joint, const
       else
       {
         if (virtual_joint.type_ == "fixed")
-          result = new FixedJointModel(virtual_joint.name_);
+          new_joint_model = new FixedJointModel(virtual_joint.name_);
         else if (virtual_joint.type_ == "planar")
-          result = new PlanarJointModel(virtual_joint.name_);
+          new_joint_model = new PlanarJointModel(virtual_joint.name_);
         else if (virtual_joint.type_ == "floating")
-          result = new FloatingJointModel(virtual_joint.name_);
-        if (result)
+          new_joint_model = new FloatingJointModel(virtual_joint.name_);
+        if (new_joint_model)
         {
           // for fixed frames we still use the robot root link
           if (virtual_joint.type_ != "fixed")
@@ -926,28 +947,28 @@ JointModel* RobotModel::constructJointModel(const urdf::Joint* urdf_joint, const
         }
       }
     }
-    if (!result)
+    if (!new_joint_model)
     {
       ROS_INFO_NAMED(LOGNAME, "No root/virtual joint specified in SRDF. Assuming fixed joint");
-      result = new FixedJointModel("ASSUMED_FIXED_ROOT_JOINT");
+      new_joint_model = new FixedJointModel("ASSUMED_FIXED_ROOT_JOINT");
     }
   }
 
-  if (result)
+  if (new_joint_model)
   {
-    result->setDistanceFactor(result->getStateSpaceDimension());
+    new_joint_model->setDistanceFactor(new_joint_model->getStateSpaceDimension());
     const std::vector<srdf::Model::PassiveJoint>& pjoints = srdf_model.getPassiveJoints();
     for (const srdf::Model::PassiveJoint& pjoint : pjoints)
     {
-      if (result->getName() == pjoint.name_)
+      if (new_joint_model->getName() == pjoint.name_)
       {
-        result->setPassive(true);
+        new_joint_model->setPassive(true);
         break;
       }
     }
   }
 
-  return result;
+  return new_joint_model;
 }
 
 namespace
@@ -958,11 +979,11 @@ static inline Eigen::Isometry3d urdfPose2Isometry3d(const urdf::Pose& pose)
   Eigen::Isometry3d af(Eigen::Translation3d(pose.position.x, pose.position.y, pose.position.z) * q);
   return af;
 }
-}
+}  // namespace
 
 LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
 {
-  LinkModel* result = new LinkModel(urdf_link->name);
+  LinkModel* new_link_model = new LinkModel(urdf_link->name);
 
   const std::vector<urdf::CollisionSharedPtr>& col_array =
       urdf_link->collision_array.empty() ? std::vector<urdf::CollisionSharedPtr>(1, urdf_link->collision) :
@@ -972,6 +993,7 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
   EigenSTL::vector_Isometry3d poses;
 
   for (const urdf::CollisionSharedPtr& col : col_array)
+  {
     if (col && col->geometry)
     {
       shapes::ShapeConstPtr s = constructShape(col->geometry.get());
@@ -981,24 +1003,30 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
         poses.push_back(urdfPose2Isometry3d(col->origin));
       }
     }
-  if (shapes.empty())
-  {
-    const std::vector<urdf::VisualSharedPtr>& vis_array = urdf_link->visual_array.empty() ?
-                                                              std::vector<urdf::VisualSharedPtr>(1, urdf_link->visual) :
-                                                              urdf_link->visual_array;
-    for (const urdf::VisualSharedPtr& vis : vis_array)
-      if (vis && vis->geometry)
-      {
-        shapes::ShapeConstPtr s = constructShape(vis->geometry.get());
-        if (s)
-        {
-          shapes.push_back(s);
-          poses.push_back(urdfPose2Isometry3d(vis->origin));
-        }
-      }
   }
 
-  result->setGeometry(shapes, poses);
+  // Should we warn that old (melodic) behaviour has changed, not copying visual to collision geometries anymore?
+  bool warn_about_missing_collision = false;
+  if (shapes.empty())
+  {
+    const auto& vis_array = urdf_link->visual_array.empty() ? std::vector<urdf::VisualSharedPtr>{ urdf_link->visual } :
+                                                              urdf_link->visual_array;
+    for (const urdf::VisualSharedPtr& vis : vis_array)
+    {
+      if (vis && vis->geometry)
+        warn_about_missing_collision = true;
+    }
+  }
+  if (warn_about_missing_collision)
+  {
+    ROS_WARN_STREAM_NAMED(LOGNAME + ".empty_collision_geometry",
+                          "Link " << urdf_link->name
+                                  << " has visual geometry but no collision geometry. "
+                                     "Collision geometry will be left empty. "
+                                     "Fix your URDF file by explicitly specifying collision geometry.");
+  }
+
+  new_link_model->setGeometry(shapes, poses);
 
   // figure out visual mesh (try visual urdf tag first, collision tag otherwise
   if (urdf_link->visual && urdf_link->visual->geometry)
@@ -1007,8 +1035,8 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
     {
       const urdf::Mesh* mesh = static_cast<const urdf::Mesh*>(urdf_link->visual->geometry.get());
       if (!mesh->filename.empty())
-        result->setVisualMesh(mesh->filename, urdfPose2Isometry3d(urdf_link->visual->origin),
-                              Eigen::Vector3d(mesh->scale.x, mesh->scale.y, mesh->scale.z));
+        new_link_model->setVisualMesh(mesh->filename, urdfPose2Isometry3d(urdf_link->visual->origin),
+                                      Eigen::Vector3d(mesh->scale.x, mesh->scale.y, mesh->scale.z));
     }
   }
   else if (urdf_link->collision && urdf_link->collision->geometry)
@@ -1017,36 +1045,37 @@ LinkModel* RobotModel::constructLinkModel(const urdf::Link* urdf_link)
     {
       const urdf::Mesh* mesh = static_cast<const urdf::Mesh*>(urdf_link->collision->geometry.get());
       if (!mesh->filename.empty())
-        result->setVisualMesh(mesh->filename, urdfPose2Isometry3d(urdf_link->collision->origin),
-                              Eigen::Vector3d(mesh->scale.x, mesh->scale.y, mesh->scale.z));
+        new_link_model->setVisualMesh(mesh->filename, urdfPose2Isometry3d(urdf_link->collision->origin),
+                                      Eigen::Vector3d(mesh->scale.x, mesh->scale.y, mesh->scale.z));
     }
   }
 
   if (urdf_link->parent_joint)
-    result->setJointOriginTransform(urdfPose2Isometry3d(urdf_link->parent_joint->parent_to_joint_origin_transform));
+    new_link_model->setJointOriginTransform(
+        urdfPose2Isometry3d(urdf_link->parent_joint->parent_to_joint_origin_transform));
 
-  return result;
+  return new_link_model;
 }
 
 shapes::ShapePtr RobotModel::constructShape(const urdf::Geometry* geom)
 {
   moveit::tools::Profiler::ScopedBlock prof_block("RobotModel::constructShape");
 
-  shapes::Shape* result = nullptr;
+  shapes::Shape* new_shape = nullptr;
   switch (geom->type)
   {
     case urdf::Geometry::SPHERE:
-      result = new shapes::Sphere(static_cast<const urdf::Sphere*>(geom)->radius);
+      new_shape = new shapes::Sphere(static_cast<const urdf::Sphere*>(geom)->radius);
       break;
     case urdf::Geometry::BOX:
     {
       urdf::Vector3 dim = static_cast<const urdf::Box*>(geom)->dim;
-      result = new shapes::Box(dim.x, dim.y, dim.z);
+      new_shape = new shapes::Box(dim.x, dim.y, dim.z);
     }
     break;
     case urdf::Geometry::CYLINDER:
-      result = new shapes::Cylinder(static_cast<const urdf::Cylinder*>(geom)->radius,
-                                    static_cast<const urdf::Cylinder*>(geom)->length);
+      new_shape = new shapes::Cylinder(static_cast<const urdf::Cylinder*>(geom)->radius,
+                                       static_cast<const urdf::Cylinder*>(geom)->length);
       break;
     case urdf::Geometry::MESH:
     {
@@ -1055,7 +1084,7 @@ shapes::ShapePtr RobotModel::constructShape(const urdf::Geometry* geom)
       {
         Eigen::Vector3d scale(mesh->scale.x, mesh->scale.y, mesh->scale.z);
         shapes::Mesh* m = shapes::createMeshFromResource(mesh->filename, scale);
-        result = m;
+        new_shape = m;
       }
     }
     break;
@@ -1064,7 +1093,7 @@ shapes::ShapePtr RobotModel::constructShape(const urdf::Geometry* geom)
       break;
   }
 
-  return shapes::ShapePtr(result);
+  return shapes::ShapePtr(new_shape);
 }
 
 bool RobotModel::hasJointModel(const std::string& name) const
@@ -1141,10 +1170,10 @@ const LinkModel* RobotModel::getRigidlyConnectedParentLinkModel(const LinkModel*
 {
   if (!link)
     return link;
-  const robot_model::LinkModel* parent_link = link->getParentLinkModel();
-  const robot_model::JointModel* joint = link->getParentJointModel();
+  const moveit::core::LinkModel* parent_link = link->getParentLinkModel();
+  const moveit::core::JointModel* joint = link->getParentJointModel();
 
-  while (parent_link && joint->getType() == robot_model::JointModel::FIXED)
+  while (parent_link && joint->getType() == moveit::core::JointModel::FIXED)
   {
     link = parent_link;
     joint = link->getParentJointModel();
@@ -1277,9 +1306,9 @@ void RobotModel::setKinematicsAllocators(const std::map<std::string, SolverAlloc
     std::map<std::string, SolverAllocatorFn>::const_iterator jt = allocators.find(jmg->getName());
     if (jt != allocators.end())
     {
-      std::pair<SolverAllocatorFn, SolverAllocatorMapFn> result;
-      result.first = jt->second;
-      jmg->setSolverAllocators(result);
+      std::pair<SolverAllocatorFn, SolverAllocatorMapFn> solver_allocator_pair;
+      solver_allocator_pair.first = jt->second;
+      jmg->setSolverAllocators(solver_allocator_pair);
     }
   }
 
@@ -1287,7 +1316,7 @@ void RobotModel::setKinematicsAllocators(const std::map<std::string, SolverAlloc
   // setSolverAllocators()
   for (JointModelGroup* jmg : joint_model_groups_)
   {
-    std::pair<SolverAllocatorFn, SolverAllocatorMapFn> result;
+    std::pair<SolverAllocatorFn, SolverAllocatorMapFn> solver_allocator_pair;
     std::map<std::string, SolverAllocatorFn>::const_iterator jt = allocators.find(jmg->getName());
     if (jt == allocators.end())
     {
@@ -1311,16 +1340,16 @@ void RobotModel::setKinematicsAllocators(const std::map<std::string, SolverAlloc
 
         if (std::includes(joints.begin(), joints.end(), sub_joints.begin(), sub_joints.end()))
         {  // sub_joints included in joints: add sub, remove sub_joints from joints set
-          std::set<const JointModel*> resultj;
+          std::set<const JointModel*> joint_model_set;
           std::set_difference(joints.begin(), joints.end(), sub_joints.begin(), sub_joints.end(),
-                              std::inserter(resultj, resultj.end()));
+                              std::inserter(joint_model_set, joint_model_set.end()));
           // TODO: instead of maintaining disjoint joint sets here,
           // should we leave that work to JMG's setSolverAllocators() / computeIKIndexBijection()?
           // There, a disjoint bijection from joints to solvers is computed anyway.
           // Underlying question: How do we resolve overlaps? Now the first considered sub group "wins"
           // But, if the overlap only involves fixed joints, we could consider all sub groups
           subs.push_back(sub);
-          joints.swap(resultj);
+          joints.swap(joint_model_set);
         }
       }
 
@@ -1331,12 +1360,12 @@ void RobotModel::setKinematicsAllocators(const std::map<std::string, SolverAlloc
         for (const JointModelGroup* sub : subs)
         {
           ss << sub->getName() << " ";
-          result.second[sub] = allocators.find(sub->getName())->second;
+          solver_allocator_pair.second[sub] = allocators.find(sub->getName())->second;
         }
         ROS_DEBUG_NAMED(LOGNAME, "Added sub-group IK allocators for group '%s': [ %s]", jmg->getName().c_str(),
                         ss.str().c_str());
       }
-      jmg->setSolverAllocators(result);
+      jmg->setSolverAllocators(solver_allocator_pair);
     }
   }
 }

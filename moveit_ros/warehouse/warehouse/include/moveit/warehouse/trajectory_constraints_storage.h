@@ -34,8 +34,7 @@
 
 /* Author: Mario Prats, Ioan Sucan */
 
-#ifndef MOVEIT_MOVEIT_WAREHOUSE_TRAJECTORY_CONSTRAINTS_STORAGE_
-#define MOVEIT_MOVEIT_WAREHOUSE_TRAJECTORY_CONSTRAINTS_STORAGE_
+#pragma once
 
 #include "moveit/warehouse/moveit_message_storage.h"
 #include <moveit/macros/class_forward.h>
@@ -47,7 +46,7 @@ typedef warehouse_ros::MessageWithMetadata<moveit_msgs::TrajectoryConstraints>::
     TrajectoryConstraintsWithMetadata;
 typedef warehouse_ros::MessageCollection<moveit_msgs::TrajectoryConstraints>::Ptr TrajectoryConstraintsCollection;
 
-MOVEIT_CLASS_FORWARD(TrajectoryConstraintsStorage);
+MOVEIT_CLASS_FORWARD(TrajectoryConstraintsStorage);  // Defines TrajectoryConstraintsStoragePtr, ConstPtr, WeakPtr... etc
 
 class TrajectoryConstraintsStorage : public MoveItMessageStorage
 {
@@ -79,13 +78,11 @@ public:
   void removeTrajectoryConstraints(const std::string& name, const std::string& robot = "",
                                    const std::string& group = "");
 
-  void reset(void);
+  void reset();
 
 private:
-  void createCollections(void);
+  void createCollections();
 
   TrajectoryConstraintsCollection constraints_collection_;
 };
-}
-
-#endif
+}  // namespace moveit_warehouse

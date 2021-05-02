@@ -34,8 +34,7 @@
 
 /* Author: Dave Coleman */
 
-#ifndef MOVEIT_MOVEIT_SETUP_ASSISTANT_TOOLS_MOVEIT_CONFIG_DATA_
-#define MOVEIT_MOVEIT_SETUP_ASSISTANT_TOOLS_MOVEIT_CONFIG_DATA_
+#pragma once
 
 #include <moveit/macros/class_forward.h>
 #include <moveit/planning_scene/planning_scene.h>                     // for getting kinematic model
@@ -43,6 +42,8 @@
 #include <yaml-cpp/yaml.h>                                            // outputing yaml config files
 #include <urdf/model.h>                                               // to share throughout app
 #include <srdfdom/srdf_writer.h>                                      // for writing srdf data
+
+#include <utility>
 
 namespace moveit_setup_assistant
 {
@@ -55,8 +56,8 @@ static const std::string ROBOT_DESCRIPTION = "robot_description";
 static const std::string MOVEIT_ROBOT_STATE = "moveit_robot_state";
 
 // Default kin solver values
-static const double DEFAULT_KIN_SOLVER_SEARCH_RESOLUTION_ = 0.005;
-static const double DEFAULT_KIN_SOLVER_TIMEOUT_ = 0.005;
+static const double DEFAULT_KIN_SOLVER_SEARCH_RESOLUTION = 0.005;
+static const double DEFAULT_KIN_SOLVER_TIMEOUT = 0.005;
 
 // ******************************************************************************************
 // Structs
@@ -70,6 +71,7 @@ struct GroupMetaData
   std::string kinematics_solver_;               // Name of kinematics plugin to use
   double kinematics_solver_search_resolution_;  // resolution to use with solver
   double kinematics_solver_timeout_;            // solver timeout
+  std::string kinematics_parameters_file_;      // file for additional kinematics parameters
   std::string default_planner_;                 // Name of the default planner to use
 };
 
@@ -143,15 +145,15 @@ public:
 
   void setName(std::string name)
   {
-    name_ = name;
+    name_ = std::move(name);
   };
   void setValue(std::string value)
   {
-    value_ = value;
+    value_ = std::move(value);
   };
   void setComment(std::string comment)
   {
-    comment_ = comment;
+    comment_ = std::move(comment);
   };
   std::string getName()
   {
@@ -172,10 +174,10 @@ private:
   std::string comment_;  // comment briefly describing what this parameter does
 };
 
-MOVEIT_CLASS_FORWARD(MoveItConfigData);
+MOVEIT_CLASS_FORWARD(MoveItConfigData);  // Defines MoveItConfigDataPtr, ConstPtr, WeakPtr... etc
 
 /** \brief This class is shared with all widgets and contains the common configuration data
-    needed for generating each robot's MoveIt! configuration package.
+    needed for generating each robot's MoveIt configuration package.
 
     All SRDF data is contained in a subclass of this class -
     srdf_writer.cpp. This class also contains the functions for writing
@@ -203,7 +205,7 @@ public:
   };
   unsigned long changes;  // bitfield of changes (composed of InformationFields)
 
-  // All of the data needed for creating a MoveIt! Configuration Files
+  // All of the data needed for creating a MoveIt Configuration Files
 
   // ******************************************************************************************
   // URDF Data
@@ -281,7 +283,7 @@ public:
   void setRobotModel(const moveit::core::RobotModelPtr& robot_model);
 
   /// Provide a shared kinematic model loader
-  robot_model::RobotModelConstPtr getRobotModel();
+  moveit::core::RobotModelConstPtr getRobotModel();
 
   /// Update the Kinematic Model with latest SRDF modifications
   void updateRobotModel();
@@ -364,6 +366,13 @@ public:
   bool inputKinematicsYAML(const std::string& file_path);
 
   /**
+   * Input planning_context.launch for editing its values
+   * @param file_path path to planning_context.launch in the input package
+   * @return true if the file was read correctly
+   */
+  bool inputPlanningContextLaunch(const std::string& file_path);
+
+  /**
    * Helper function for parsing ros_controllers.yaml file
    * @param YAML::Node - individual controller to be parsed
    * @return true if the file was read correctly
@@ -398,6 +407,16 @@ public:
   bool setPackagePath(const std::string& pkg_path);
 
   /**
+   * determine the package name containing a given file path
+   * @param path to a file
+   * @param package_name holds the ros package name if found
+   * @param relative_filepath holds the relative path of the file to the package root
+   * @return whether the file belongs to a known package
+   */
+  bool extractPackageNameFromPath(const std::string& path, std::string& package_name,
+                                  std::string& relative_filepath) const;
+
+  /**
    * Resolve path to .setup_assistant file
    * @param path resolved path
    * @return true if the path could be resolved
@@ -411,7 +430,7 @@ public:
   bool createFullSRDFPath(const std::string& package_path);
 
   /**
-   * Input .setup_assistant file - contains data used for the MoveIt! Setup Assistant
+   * Input .setup_assistant file - contains data used for the MoveIt Setup Assistant
    *
    * @param file_path path to .setup_assistant file
    * @return true if the file was read correctly
@@ -483,14 +502,19 @@ public:
   std::vector<std::map<std::string, GenericParameter> > getSensorPluginConfig();
 
   /**
+   * \brief Helper function to get the default start pose for moveit_sim_hw_interface
+   */
+  srdf::Model::GroupState getDefaultStartPose();
+
+  /**
    * \brief Custom std::set comparator, used for sorting the joint_limits.yaml file into alphabetical order
    * \param jm1 - a pointer to the first joint model to compare
    * \param jm2 - a pointer to the second joint model to compare
    * \return bool of alphabetical sorting comparison
    */
-  struct joint_model_compare
+  struct JointModelCompare
   {
-    bool operator()(const robot_model::JointModel* jm1, const robot_model::JointModel* jm2) const
+    bool operator()(const moveit::core::JointModel* jm1, const moveit::core::JointModel* jm2) const
     {
       return jm1->getName() < jm2->getName();
     }
@@ -505,7 +529,7 @@ private:
   std::vector<std::map<std::string, GenericParameter> > sensors_plugin_config_parameter_list_;
 
   /// Shared kinematic model
-  robot_model::RobotModelPtr robot_model_;
+  moveit::core::RobotModelPtr robot_model_;
 
   /// ROS Controllers config data
   std::vector<ROSControlConfig> ros_controllers_config_;
@@ -514,6 +538,4 @@ private:
   planning_scene::PlanningScenePtr planning_scene_;
 };
 
-}  // namespace
-
-#endif
+}  // namespace moveit_setup_assistant

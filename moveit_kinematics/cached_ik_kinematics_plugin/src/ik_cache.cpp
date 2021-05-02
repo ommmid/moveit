@@ -35,8 +35,6 @@
 /* Author: Mark Moll */
 
 #include <boost/filesystem/fstream.hpp>
-#include <chrono>
-#include <cstdlib>
 #include <numeric>
 
 #include <moveit/cached_ik_kinematics_plugin/cached_ik_kinematics_plugin.h>
@@ -61,7 +59,7 @@ IKCache::~IKCache()
 }
 
 void IKCache::initializeCache(const std::string& robot_id, const std::string& group_name, const std::string& cache_name,
-                              const unsigned int num_joints, Options opts)
+                              const unsigned int num_joints, const Options& opts)
 {
   // read ROS parameters
   max_cache_size_ = opts.max_cache_size;

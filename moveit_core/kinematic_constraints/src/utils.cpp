@@ -38,6 +38,8 @@
 #include <geometric_shapes/solid_primitive_dims.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <moveit/utils/xmlrpc_casts.h>
+#include <moveit/utils/message_checks.h>
+#include <eigen_conversions/eigen_msg.h>
 
 using namespace moveit::core;
 
@@ -116,8 +118,7 @@ moveit_msgs::Constraints mergeConstraints(const moveit_msgs::Constraints& first,
 
 bool isEmpty(const moveit_msgs::Constraints& constr)
 {
-  return constr.position_constraints.empty() && constr.orientation_constraints.empty() &&
-         constr.visibility_constraints.empty() && constr.joint_constraints.empty();
+  return moveit::core::isEmpty(constr);
 }
 
 std::size_t countIndividualConstraints(const moveit_msgs::Constraints& constr)
@@ -126,14 +127,14 @@ std::size_t countIndividualConstraints(const moveit_msgs::Constraints& constr)
          constr.visibility_constraints.size() + constr.joint_constraints.size();
 }
 
-moveit_msgs::Constraints constructGoalConstraints(const robot_state::RobotState& state,
-                                                  const robot_model::JointModelGroup* jmg, double tolerance)
+moveit_msgs::Constraints constructGoalConstraints(const moveit::core::RobotState& state,
+                                                  const moveit::core::JointModelGroup* jmg, double tolerance)
 {
   return constructGoalConstraints(state, jmg, tolerance, tolerance);
 }
 
-moveit_msgs::Constraints constructGoalConstraints(const robot_state::RobotState& state,
-                                                  const robot_model::JointModelGroup* jmg, double tolerance_below,
+moveit_msgs::Constraints constructGoalConstraints(const moveit::core::RobotState& state,
+                                                  const moveit::core::JointModelGroup* jmg, double tolerance_below,
                                                   double tolerance_above)
 {
   moveit_msgs::Constraints goal;
@@ -166,7 +167,7 @@ moveit_msgs::Constraints constructGoalConstraints(const std::string& link_name, 
   pcm.constraint_region.primitives.resize(1);
   shape_msgs::SolidPrimitive& bv = pcm.constraint_region.primitives[0];
   bv.type = shape_msgs::SolidPrimitive::SPHERE;
-  bv.dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::SPHERE>::value);
+  bv.dimensions.resize(geometric_shapes::solidPrimitiveDimCount<shape_msgs::SolidPrimitive::SPHERE>());
   bv.dimensions[shape_msgs::SolidPrimitive::SPHERE_RADIUS] = tolerance_pos;
 
   pcm.header = pose.header;
@@ -202,7 +203,7 @@ moveit_msgs::Constraints constructGoalConstraints(const std::string& link_name, 
   {
     shape_msgs::SolidPrimitive& bv = goal.position_constraints[0].constraint_region.primitives[0];
     bv.type = shape_msgs::SolidPrimitive::BOX;
-    bv.dimensions.resize(geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>::value);
+    bv.dimensions.resize(geometric_shapes::solidPrimitiveDimCount<shape_msgs::SolidPrimitive::BOX>());
     bv.dimensions[shape_msgs::SolidPrimitive::BOX_X] = tolerance_pos[0];
     bv.dimensions[shape_msgs::SolidPrimitive::BOX_Y] = tolerance_pos[1];
     bv.dimensions[shape_msgs::SolidPrimitive::BOX_Z] = tolerance_pos[2];
@@ -257,7 +258,7 @@ moveit_msgs::Constraints constructGoalConstraints(const std::string& link_name,
   pcm.constraint_region.primitives.resize(1);
   pcm.constraint_region.primitives[0].type = shape_msgs::SolidPrimitive::SPHERE;
   pcm.constraint_region.primitives[0].dimensions.resize(
-      geometric_shapes::SolidPrimitiveDimCount<shape_msgs::SolidPrimitive::SPHERE>::value);
+      geometric_shapes::solidPrimitiveDimCount<shape_msgs::SolidPrimitive::SPHERE>());
   pcm.constraint_region.primitives[0].dimensions[shape_msgs::SolidPrimitive::SPHERE_RADIUS] = tolerance;
 
   pcm.header = goal_point.header;
@@ -529,7 +530,7 @@ bool constructConstraints(XmlRpc::XmlRpcValue& params, moveit_msgs::Constraints&
 }
 }  // namespace kinematic_constraints
 
-bool kinematic_constraints::resolveConstraintFrames(const robot_state::RobotState& state,
+bool kinematic_constraints::resolveConstraintFrames(const moveit::core::RobotState& state,
                                                     moveit_msgs::Constraints& constraints)
 {
   for (auto& c : constraints.position_constraints)
@@ -540,43 +541,38 @@ bool kinematic_constraints::resolveConstraintFrames(const robot_state::RobotStat
     if (!frame_found)
       return false;
 
-    // If the frame of the constraint is not part of the robot link model (but is an
-    // attached body or subframe instead), the constraint needs to be expressed in
-    // the frame of a robot link.
+    // If the frame of the constraint is not part of the robot link model (but an attached body or subframe),
+    // the constraint needs to be expressed in the frame of a robot link.
     if (c.link_name != robot_link->getName())
     {
-      Eigen::Vector3d pos_in_link_frame,
-          pos_in_original_frame(c.target_point_offset.x, c.target_point_offset.y, c.target_point_offset.z);
+      Eigen::Isometry3d robot_link_to_link_name = state.getGlobalLinkTransform(robot_link).inverse() * transform;
+      Eigen::Vector3d offset_link_name(c.target_point_offset.x, c.target_point_offset.y, c.target_point_offset.z);
+      Eigen::Vector3d offset_robot_link = robot_link_to_link_name * offset_link_name;
 
-      pos_in_link_frame = transform * pos_in_original_frame;
       c.link_name = robot_link->getName();
-      c.target_point_offset.x = pos_in_link_frame[0];
-      c.target_point_offset.y = pos_in_link_frame[1];
-      c.target_point_offset.z = pos_in_link_frame[2];
+      tf::vectorEigenToMsg(offset_robot_link, c.target_point_offset);
     }
   }
+
   for (auto& c : constraints.orientation_constraints)
   {
     bool frame_found;
     const moveit::core::LinkModel* robot_link;
+    // getFrameInfo() returns a valid isometry by contract
     const Eigen::Isometry3d& transform = state.getFrameInfo(c.link_name, robot_link, frame_found);
     if (!frame_found)
       return false;
 
-    // If the frame of the constraint is not part of the robot link model (but is an
-    // attached body or subframe instead), the constraint needs to be expressed in
-    // the frame of a robot link.
+    // If the frame of the constraint is not part of the robot link model (but an attached body or subframe),
+    // the constraint needs to be expressed in the frame of a robot link.
     if (c.link_name != robot_link->getName())
     {
-      Eigen::Quaterniond q_body_to_link(transform.inverse().rotation());
-      Eigen::Quaterniond q_target(c.orientation.w, c.orientation.x, c.orientation.y, c.orientation.z);
-      Eigen::Quaterniond q_in_link = q_body_to_link * q_target;
-
       c.link_name = robot_link->getName();
-      c.orientation.x = q_in_link.x();
-      c.orientation.y = q_in_link.y();
-      c.orientation.z = q_in_link.z();
-      c.orientation.w = q_in_link.w();
+      Eigen::Quaterniond link_name_to_robot_link(transform.linear().transpose() *
+                                                 state.getGlobalLinkTransform(robot_link).linear());
+      Eigen::Quaterniond quat_target;
+      tf::quaternionMsgToEigen(c.orientation, quat_target);
+      tf::quaternionEigenToMsg(quat_target * link_name_to_robot_link, c.orientation);
     }
   }
   return true;

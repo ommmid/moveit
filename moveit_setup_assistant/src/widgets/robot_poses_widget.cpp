@@ -36,20 +36,30 @@
 
 // SA
 #include "robot_poses_widget.h"
+#include "header_widget.h"
 #include <moveit_msgs/JointLimits.h>
 // Qt
-#include <QFormLayout>
-#include <QMessageBox>
-#include <QDoubleValidator>
 #include <QApplication>
+#include <QComboBox>
+#include <QDoubleValidator>
+#include <QFormLayout>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QScrollArea>
+#include <QSlider>
+#include <QStackedWidget>
+#include <QTableWidget>
 
 #include <moveit/robot_state/conversions.h>
 #include <moveit_msgs/DisplayRobotState.h>
+#include <moveit/planning_scene/planning_scene.h>
 
 namespace moveit_setup_assistant
 {
 // ******************************************************************************************
-// Outer User Interface for MoveIt! Configuration Assistant
+// Outer User Interface for MoveIt Configuration Assistant
 // ******************************************************************************************
 RobotPosesWidget::RobotPosesWidget(QWidget* parent, const MoveItConfigDataPtr& config_data)
   : SetupScreenWidget(parent), config_data_(config_data)
@@ -62,10 +72,12 @@ RobotPosesWidget::RobotPosesWidget(QWidget* parent, const MoveItConfigDataPtr& c
 
   // Top Header Area ------------------------------------------------
 
-  HeaderWidget* header = new HeaderWidget(
-      "Define Robot Poses", "Create poses for the robot. Poses are defined as sets of joint values for "
-                            "particular planning groups. This is useful for things like <i>home position</i>.",
-      this);
+  HeaderWidget* header =
+      new HeaderWidget("Define Robot Poses",
+                       "Create poses for the robot. Poses are defined as sets of joint values for "
+                       "particular planning groups. This is useful for things like <i>home position</i>."
+                       "The first pose for each robot will be its initial pose in simulation.",
+                       this);
   layout->addWidget(header);
 
   // Create contents screens ---------------------------------------
@@ -73,15 +85,10 @@ RobotPosesWidget::RobotPosesWidget(QWidget* parent, const MoveItConfigDataPtr& c
   pose_edit_widget_ = createEditWidget();
 
   // Create stacked layout -----------------------------------------
-  stacked_layout_ = new QStackedLayout(this);
-  stacked_layout_->addWidget(pose_list_widget_);  // screen index 0
-  stacked_layout_->addWidget(pose_edit_widget_);  // screen index 1
-
-  // Create Widget wrapper for layout
-  QWidget* stacked_layout_widget = new QWidget(this);
-  stacked_layout_widget->setLayout(stacked_layout_);
-
-  layout->addWidget(stacked_layout_widget);
+  stacked_widget_ = new QStackedWidget(this);
+  stacked_widget_->addWidget(pose_list_widget_);  // screen index 0
+  stacked_widget_->addWidget(pose_edit_widget_);  // screen index 1
+  layout->addWidget(stacked_widget_);
 
   // Finish Layout --------------------------------------------------
   this->setLayout(layout);
@@ -93,7 +100,7 @@ RobotPosesWidget::RobotPosesWidget(QWidget* parent, const MoveItConfigDataPtr& c
   pub_robot_state_ = nh.advertise<moveit_msgs::DisplayRobotState>(MOVEIT_ROBOT_STATE, 1);
 
   // Set the planning scene
-  config_data_->getPlanningScene()->setName("MoveIt! Planning Scene");
+  config_data_->getPlanningScene()->setName("MoveIt Planning Scene");
 
   // Collision Detection initializtion -------------------------------
 
@@ -122,7 +129,7 @@ QWidget* RobotPosesWidget::createContentsWidget()
   data_table_->setSortingEnabled(true);
   data_table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   connect(data_table_, SIGNAL(cellDoubleClicked(int, int)), this, SLOT(editDoubleClicked(int, int)));
-  connect(data_table_, SIGNAL(cellClicked(int, int)), this, SLOT(previewClicked(int, int)));
+  connect(data_table_, SIGNAL(currentCellChanged(int, int, int, int)), this, SLOT(previewClicked(int, int, int, int)));
   layout->addWidget(data_table_);
 
   // Set header labels
@@ -144,7 +151,7 @@ QWidget* RobotPosesWidget::createContentsWidget()
   controls_layout->setAlignment(btn_default, Qt::AlignLeft);
 
   // Set play button
-  QPushButton* btn_play = new QPushButton("&MoveIt!", this);
+  QPushButton* btn_play = new QPushButton("&MoveIt", this);
   btn_play->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
   btn_play->setMaximumWidth(300);
   connect(btn_play, SIGNAL(clicked()), this, SLOT(playPoses()));
@@ -152,9 +159,7 @@ QWidget* RobotPosesWidget::createContentsWidget()
   controls_layout->setAlignment(btn_play, Qt::AlignLeft);
 
   // Spacer
-  QWidget* spacer = new QWidget(this);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  controls_layout->addWidget(spacer);
+  controls_layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   // Edit Selected Button
   btn_edit_ = new QPushButton("&Edit Selected", this);
@@ -256,9 +261,7 @@ QWidget* RobotPosesWidget::createEditWidget()
   controls_layout->setContentsMargins(0, 25, 0, 15);
 
   // Spacer
-  QWidget* spacer = new QWidget(this);
-  spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-  controls_layout->addWidget(spacer);
+  controls_layout->addItem(new QSpacerItem(20, 20, QSizePolicy::Expanding, QSizePolicy::Minimum));
 
   // Save
   btn_save_ = new QPushButton("&Save", this);
@@ -289,7 +292,7 @@ QWidget* RobotPosesWidget::createEditWidget()
 void RobotPosesWidget::showNewScreen()
 {
   // Switch to screen - do this before clearEditText()
-  stacked_layout_->setCurrentIndex(1);
+  stacked_widget_->setCurrentIndex(1);
 
   // Remember that this is a new pose
   current_edit_pose_ = nullptr;
@@ -308,7 +311,7 @@ void RobotPosesWidget::showNewScreen()
 // ******************************************************************************************
 // Edit whatever element is selected
 // ******************************************************************************************
-void RobotPosesWidget::editDoubleClicked(int row, int column)
+void RobotPosesWidget::editDoubleClicked(int /*row*/, int /*column*/)
 {
   // We'll just base the edit on the selection highlight
   editSelected();
@@ -317,15 +320,19 @@ void RobotPosesWidget::editDoubleClicked(int row, int column)
 // ******************************************************************************************
 // Preview whatever element is selected
 // ******************************************************************************************
-void RobotPosesWidget::previewClicked(int row, int column)
+void RobotPosesWidget::previewClicked(int row, int /*column*/, int /*previous_row*/, int /*previous_column*/)
 {
-  const std::string& name = data_table_->item(row, 0)->text().toStdString();
-  const std::string& group = data_table_->item(row, 1)->text().toStdString();
+  QTableWidgetItem* name = data_table_->item(row, 0);
+  QTableWidgetItem* group = data_table_->item(row, 1);
 
-  // Find the selected in datastructure
-  srdf::Model::GroupState* pose = findPoseByName(name, group);
+  // nullptr check before dereferencing
+  if (name && group)
+  {
+    // Find the selected in datastructure
+    srdf::Model::GroupState* pose = findPoseByName(name->text().toStdString(), group->text().toStdString());
 
-  showPose(pose);
+    showPose(pose);
+  }
 }
 
 // ******************************************************************************************
@@ -333,12 +340,12 @@ void RobotPosesWidget::previewClicked(int row, int column)
 // ******************************************************************************************
 void RobotPosesWidget::showPose(srdf::Model::GroupState* pose)
 {
-  // Set pose joint values by adding them to the local joint state map
+  // Set the joints based on the SRDF pose
+  moveit::core::RobotState& robot_state = config_data_->getPlanningScene()->getCurrentStateNonConst();
   for (std::map<std::string, std::vector<double> >::const_iterator value_it = pose->joint_values_.begin();
        value_it != pose->joint_values_.end(); ++value_it)
   {
-    // Only copy the first joint value // TODO: add capability for multi-DOF joints?
-    joint_state_map_[value_it->first] = value_it->second[0];
+    robot_state.setJointPositions(value_it->first, value_it->second);
   }
 
   // Update the joints
@@ -356,25 +363,8 @@ void RobotPosesWidget::showPose(srdf::Model::GroupState* pose)
 // ******************************************************************************************
 void RobotPosesWidget::showDefaultPose()
 {
-  // Get list of all joints for the robot
-  std::vector<const robot_model::JointModel*> joint_models = config_data_->getRobotModel()->getJointModels();
-
-  // Iterate through the joints
-  for (std::vector<const robot_model::JointModel*>::const_iterator joint_it = joint_models.begin();
-       joint_it < joint_models.end(); ++joint_it)
-  {
-    // Check that this joint only represents 1 variable.
-    if ((*joint_it)->getVariableCount() == 1)
-    {
-      double init_value;
-
-      // get the first joint value in its vector
-      (*joint_it)->getVariableDefaultPositions(&init_value);
-
-      // Change joint's value in joint_state_map to the default
-      joint_state_map_[(*joint_it)->getName()] = init_value;
-    }
-  }
+  moveit::core::RobotState& robot_state = config_data_->getPlanningScene()->getCurrentStateNonConst();
+  robot_state.setToDefaultValues();
 
   // Update the joints
   publishJoints();
@@ -435,19 +425,10 @@ void RobotPosesWidget::edit(int row)
   }
   group_name_field_->setCurrentIndex(index);
 
-  // Set pose joint values by adding them to the local joint state map
-  for (std::map<std::string, std::vector<double> >::const_iterator value_it = pose->joint_values_.begin();
-       value_it != pose->joint_values_.end(); ++value_it)
-  {
-    // Only copy the first joint value // TODO: add capability for multi-DOF joints?
-    joint_state_map_[value_it->first] = value_it->second[0];
-  }
-
-  // Update robot model in rviz
-  publishJoints();
+  showPose(pose);
 
   // Switch to screen - do this before setCurrentIndex
-  stacked_layout_->setCurrentIndex(1);
+  stacked_widget_->setCurrentIndex(1);
 
   // Announce that this widget is in modal mode
   Q_EMIT isModal(true);
@@ -478,7 +459,7 @@ void RobotPosesWidget::loadJointSliders(const QString& selected)
 {
   // Ignore this event if the combo box is empty. This occurs when clearing the combo box and reloading with the
   // newest groups. Also ignore if we are not on the edit screen
-  if (!group_name_field_->count() || selected.isEmpty() || stacked_layout_->currentIndex() == 0)
+  if (!group_name_field_->count() || selected.isEmpty() || stacked_widget_->currentIndex() == 0)
     return;
 
   // Get group name from input
@@ -487,9 +468,10 @@ void RobotPosesWidget::loadJointSliders(const QString& selected)
   // Check that joint model exist
   if (!config_data_->getRobotModel()->hasJointModelGroup(group_name))
   {
-    QMessageBox::critical(this, "Error Loading", QString("Unable to find joint model group for group: ")
-                                                     .append(group_name.c_str())
-                                                     .append(" Are you sure this group has associated joints/links?"));
+    QMessageBox::critical(this, "Error Loading",
+                          QString("Unable to find joint model group for group: ")
+                              .append(group_name.c_str())
+                              .append(" Are you sure this group has associated joints/links?"));
     return;
   }
 
@@ -508,31 +490,20 @@ void RobotPosesWidget::loadJointSliders(const QString& selected)
   joint_list_widget_->setMinimumSize(50, 50);  // w, h
 
   // Get list of associated joints
-  const robot_model::JointModelGroup* joint_model_group = config_data_->getRobotModel()->getJointModelGroup(group_name);
-  joint_models_ = joint_model_group->getJointModels();
+  const moveit::core::JointModelGroup* joint_model_group =
+      config_data_->getRobotModel()->getJointModelGroup(group_name);
+  const auto& robot_state = config_data_->getPlanningScene()->getCurrentState();
 
   // Iterate through the joints
   int num_joints = 0;
-  for (const robot_model::JointModel* joint_model : joint_models_)
+  for (const moveit::core::JointModel* joint_model : joint_model_group->getJointModels())
   {
     if (joint_model->getVariableCount() != 1 ||  // only consider 1-variable joints
         joint_model->isPassive() ||              // ignore passive
         joint_model->getMimic())                 // and mimic joints
       continue;
 
-    double init_value;
-
-    // Decide what this joint's initial value is
-    if (joint_state_map_.find(joint_model->getName()) == joint_state_map_.end())
-    {
-      // The joint state map does not yet have an entry for this joint
-      // Get the first joint value in its vector
-      joint_model->getVariableDefaultPositions(&init_value);
-    }
-    else  // There is already a value in the map
-    {
-      init_value = joint_state_map_[joint_model->getName()];
-    }
+    double init_value = robot_state.getVariablePosition(joint_model->getVariableNames()[0]);
 
     // For each joint in group add slider
     SliderWidget* sw = new SliderWidget(this, joint_model, init_value);
@@ -675,19 +646,22 @@ void RobotPosesWidget::doneEditing()
   // Clear the old values
   searched_data->joint_values_.clear();
 
-  // Iterate through the current group's joints and add to SRDF
-  for (std::vector<const robot_model::JointModel*>::const_iterator joint_it = joint_models_.begin();
-       joint_it < joint_models_.end(); ++joint_it)
+  const moveit::core::JointModelGroup* joint_model_group = config_data_->getRobotModel()->getJointModelGroup(group);
+  const auto& robot_state = config_data_->getPlanningScene()->getCurrentState();
+
+  // Iterate through the current group's joints and add them to SRDF
+  for (const moveit::core::JointModel* jm : joint_model_group->getJointModels())
   {
     // Check that this joint only represents 1 variable.
-    if ((*joint_it)->getVariableCount() == 1)
+    if (jm->getVariableCount() == 1 && !jm->isPassive() && !jm->getMimic())
     {
       // Create vector for new joint values
-      std::vector<double> joint_value;
-      joint_value.push_back(joint_state_map_[(*joint_it)->getName()]);
+      std::vector<double> joint_values(jm->getVariableCount());
+      const double* const first_variable = robot_state.getVariablePositions() + jm->getFirstVariableIndex();
+      std::copy(first_variable, first_variable + joint_values.size(), joint_values.begin());
 
       // Add joint vector to SRDF
-      searched_data->joint_values_[(*joint_it)->getName()] = joint_value;
+      searched_data->joint_values_[jm->getName()] = std::move(joint_values);
     }
   }
 
@@ -704,7 +678,7 @@ void RobotPosesWidget::doneEditing()
   loadDataTable();
 
   // Switch to screen
-  stacked_layout_->setCurrentIndex(0);
+  stacked_widget_->setCurrentIndex(0);
 
   // Announce that this widget is done with modal mode
   Q_EMIT isModal(false);
@@ -716,7 +690,7 @@ void RobotPosesWidget::doneEditing()
 void RobotPosesWidget::cancelEditing()
 {
   // Switch to screen
-  stacked_layout_->setCurrentIndex(0);
+  stacked_widget_->setCurrentIndex(0);
 
   // Announce that this widget is done with modal mode
   Q_EMIT isModal(false);
@@ -737,13 +711,12 @@ void RobotPosesWidget::loadDataTable()
 
   // Loop through every pose
   int row = 0;
-  for (std::vector<srdf::Model::GroupState>::const_iterator data_it = config_data_->srdf_->group_states_.begin();
-       data_it != config_data_->srdf_->group_states_.end(); ++data_it)
+  for (const auto& group_state : config_data_->srdf_->group_states_)
   {
     // Create row elements
-    QTableWidgetItem* data_name = new QTableWidgetItem(data_it->name_.c_str());
+    QTableWidgetItem* data_name = new QTableWidgetItem(group_state.name_.c_str());
     data_name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-    QTableWidgetItem* group_name = new QTableWidgetItem(data_it->group_.c_str());
+    QTableWidgetItem* group_name = new QTableWidgetItem(group_state.group_.c_str());
     group_name->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     // Add to table
@@ -773,7 +746,7 @@ void RobotPosesWidget::loadDataTable()
 void RobotPosesWidget::focusGiven()
 {
   // Show the current poses screen
-  stacked_layout_->setCurrentIndex(0);
+  stacked_widget_->setCurrentIndex(0);
 
   // Load the data to the tree
   loadDataTable();
@@ -787,48 +760,33 @@ void RobotPosesWidget::focusGiven()
 // ******************************************************************************************
 void RobotPosesWidget::updateRobotModel(const std::string& name, double value)
 {
-  // Save the new value
-  joint_state_map_[name] = value;
+  moveit::core::RobotState& robot_state = config_data_->getPlanningScene()->getCurrentStateNonConst();
+  robot_state.setVariablePosition(name, value);
 
   // Update the robot model/rviz
   publishJoints();
 }
 
 // ******************************************************************************************
-// Publish the joint values in the joint_state_map_ to Rviz
+// Publish the current RobotState to Rviz
 // ******************************************************************************************
 void RobotPosesWidget::publishJoints()
 {
-  // Change the scene
-  // scene.getCurrentState().setToDefaultValues();//set to default values of 0 OR half between low and high joint values
-  // config_data_->getPlanningScene()->getCurrentState().setToRandomValues();
-
-  // Set the joints based on the map
-  config_data_->getPlanningScene()->getCurrentStateNonConst().setVariablePositions(joint_state_map_);
-
+  // Update link + collision transforms
+  auto& robot_state = config_data_->getPlanningScene()->getCurrentStateNonConst();
+  robot_state.update();
   // Create a planning scene message
   moveit_msgs::DisplayRobotState msg;
-  robot_state::robotStateToRobotStateMsg(config_data_->getPlanningScene()->getCurrentState(), msg.state);
+  moveit::core::robotStateToRobotStateMsg(robot_state, msg.state);
 
   // Publish!
   pub_robot_state_.publish(msg);
 
-  // Prevent dirty collision body transforms
-  config_data_->getPlanningScene()->getCurrentStateNonConst().update();
-
   // Decide if current state is in collision
   collision_detection::CollisionResult result;
-  config_data_->getPlanningScene()->checkSelfCollision(
-      request, result, config_data_->getPlanningScene()->getCurrentState(), config_data_->allowed_collision_matrix_);
-  // Show result notification
-  if (!result.contacts.empty())
-  {
-    collision_warning_->show();
-  }
-  else
-  {
-    collision_warning_->hide();
-  }
+  config_data_->getPlanningScene()->checkSelfCollision(request, result, robot_state,
+                                                       config_data_->allowed_collision_matrix_);
+  collision_warning_->setHidden(result.contacts.empty());
 }
 
 // ******************************************************************************************
@@ -840,7 +798,7 @@ void RobotPosesWidget::publishJoints()
 // ******************************************************************************************
 // Simple widget for adjusting joints of a robot
 // ******************************************************************************************
-SliderWidget::SliderWidget(QWidget* parent, const robot_model::JointModel* joint_model, double init_value)
+SliderWidget::SliderWidget(QWidget* parent, const moveit::core::JointModel* joint_model, double init_value)
   : QWidget(parent), joint_model_(joint_model)
 {
   // Create layouts
